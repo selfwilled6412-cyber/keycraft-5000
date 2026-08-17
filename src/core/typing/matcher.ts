@@ -109,7 +109,9 @@ export class RomanizationMatcher {
   }
 }
 
-const unique = (values: string[]): string[] => [...new Set(values)].sort();
+// Preserve token option order so the first next key follows the canonical
+// romanization shown on screen. Alternate IME inputs remain accepted.
+const unique = (values: string[]): string[] => [...new Set(values)];
 
 export function calculateAccuracy(keystrokes: number, misses: number): number {
   if (keystrokes === 0) return 100;
