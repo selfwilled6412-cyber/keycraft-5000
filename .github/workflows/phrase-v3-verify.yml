@@ -32,14 +32,16 @@ jobs:
           for (const districtName of districtNames) {
             const district = catalog.districts.find((d) => d.name === districtName);
             const missions = catalog.missions.filter((m) => m.districtId === district.id).sort((a,b) => a.number-b.number);
-            const chosen = [missions[0], missions[4], missions[9]].filter(Boolean);
-            console.log(`\n=== ${districtName} ===`);
-            for (const mission of chosen) {
-              console.log(`-- ${mission.id} / LEVEL ${mission.level} / ${mission.title} --`);
-              const rows = catalog.phrases.filter((p) => p.missionId === mission.id).sort((a,b) => a.order-b.order).slice(0, 6);
-              for (const row of rows) console.log(`${row.order}. ${row.text}`);
+            const mission = missions[0];
+            console.log(`\n=== ${districtName} / ${mission.id} / LEVEL ${mission.level} ===`);
+            const rows = catalog.phrases.filter((p) => p.missionId === mission.id).sort((a,b) => a.order-b.order);
+            for (const row of [...rows.slice(0, 6), ...rows.slice(10, 16)]) {
+              console.log(`${row.order}. ${row.text}`);
             }
           }
+          const firstMission = catalog.phrases.filter((p) => p.missionId === 'm001').sort((a,b) => a.order-b.order);
+          console.log('\n=== m001 ALL 20 ===');
+          for (const row of firstMission) console.log(`${row.order}. ${row.text}`);
           const oldBad = catalog.phrases.filter((p) => p.text.includes('鍵と机を比べる'));
           console.log(`\nOLD_BAD_PHRASE_COUNT=${oldBad.length}`);
           NODE
