@@ -3,7 +3,7 @@ name: Import KEY CRAFT 5000 handoff
 on:
   push:
     paths:
-      - keycraft-5000-online-handoff.zip
+      - 'keycraft-5000-online-handoff*.zip'
 
 permissions:
   contents: write
@@ -20,17 +20,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "3C4ECABC19BB2542A612F750EBC5BBF2D3B715A2104F3D4243A061D83FDC5F70  keycraft-5000-online-handoff.zip" | sha256sum -c -
+          archive="$(find . -maxdepth 1 -type f -name 'keycraft-5000-online-handoff*.zip' | head -n 1)"
+          test -n "$archive"
+          actual="$(sha256sum "$archive" | awk '{print toupper($1)}')"
+          expected="3C4ECABC19BB2542A612F750EBC5BBF2D3B715A2104F3D4243A061D83FDC5F70"
+          test "$actual" = "$expected"
 
       - name: Extract handoff safely
         shell: python
         run: |
-          import os
+          import glob
           import shutil
           import zipfile
           from pathlib import Path
 
-          archive = Path("keycraft-5000-online-handoff.zip")
+          matches = sorted(glob.glob("keycraft-5000-online-handoff*.zip"))
+          if not matches:
+              raise RuntimeError("Handoff ZIP not found")
+          archive = Path(matches[0])
           root = Path.cwd().resolve()
 
           with zipfile.ZipFile(archive) as z:
@@ -48,7 +55,7 @@ jobs:
       - name: Remove one-time handoff files
         shell: bash
         run: |
-          rm -f keycraft-5000-online-handoff.zip
+          rm -f keycraft-5000-online-handoff*.zip
           rm -f .github/workflows/import-handoff.yml
 
       - name: Commit imported MVP
