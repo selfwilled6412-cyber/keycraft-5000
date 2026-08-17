@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'keycraft-5000-online-handoff*.zip'
+      - '.github/workflows/import-handoff.yml'
 
 permissions:
   contents: write
@@ -52,11 +53,12 @@ jobs:
                   with z.open(info) as src, open(target, "wb") as dst:
                       shutil.copyfileobj(src, dst)
 
-      - name: Remove one-time handoff files
+      - name: Prepare import without workflow changes
         shell: bash
         run: |
+          set -euo pipefail
           rm -f keycraft-5000-online-handoff*.zip
-          rm -f .github/workflows/import-handoff.yml
+          rm -f .github/workflows/ci.yml
 
       - name: Commit imported MVP
         shell: bash
@@ -64,6 +66,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -A -- . ':(exclude).github/workflows/**'
           git commit -m "Import KEY CRAFT 5000 MVP"
           git push origin main
