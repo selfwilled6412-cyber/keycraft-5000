@@ -21,6 +21,15 @@ describe("RomanizationMatcher", () => {
     expect(type("きって", "kil tute".replace(" ", "")).snapshot().completed).toBe(true);
   });
 
+  it("小さいっの案内は子音重ねをxtu・ltuより優先する", () => {
+    const matcher = new RomanizationMatcher("ぽけっと");
+    for (const key of "poke") matcher.press(key);
+    expect(matcher.snapshot().nextKeys).toEqual(["t", "x", "l"]);
+    expect(matcher.snapshot().nextKeys[0]).toBe("t");
+    matcher.press("t");
+    expect(matcher.snapshot().nextKeys[0]).toBe("t");
+  });
+
   it("母音前のんは曖昧な単独nを許さない", () => {
     expect(type("んあ", "na").snapshot().completed).toBe(false);
     expect(type("んあ", "nna").snapshot().completed).toBe(true);
