@@ -2,18 +2,13 @@ import { toCanonicalRoman } from "../src/core/typing/romanization";
 import { missionStages, zoneSources } from "../src/content/source";
 import type { ContentCatalog, TextReading } from "../src/content/types";
 
-const literal = (text: string, reading = text): TextReading => ({ text, reading });
-const join = (...parts: TextReading[]): TextReading => ({
-  text: parts.map((part) => part.text).join(""),
-  reading: parts.map((part) => part.reading).join(""),
-});
-
 interface PhraseContext {
   district: TextReading;
   focus: TextReading;
   words: TextReading[];
 }
 
+const phrase = (text: string, reading: string): TextReading => ({ text, reading });
 const at = (context: PhraseContext, index: number): TextReading =>
   context.words[index % context.words.length] ?? context.words[0]!;
 
@@ -22,26 +17,26 @@ function levelOne(context: PhraseContext): TextReading[] {
   const f = context.focus;
   const w = (index: number) => at(context, index);
   return [
-    join(d, literal("で"), w(0), literal("を見つける", "をみつける")),
-    join(w(1), literal("の名前を覚えて", "のなまえをおぼえて"), d, literal("を歩く", "をあるく")),
-    join(d, literal("で"), w(2), literal("と"), w(3), literal("を比べる", "をくらべる")),
-    join(f, literal("の近くで", "のちかくで"), w(4), literal("を探す", "をさがす")),
-    join(w(5), literal("をノートに書いて", "をのーとにかいて"), d, literal("へ戻る", "へもどる")),
-    join(d, literal("で"), w(6), literal("の写真を残す", "のしゃしんをのこす")),
-    join(w(7), literal("を目印に", "をめじるしに"), f, literal("へ進む", "へすすむ")),
-    join(d, literal("の"), w(8), literal("をみんなに紹介する", "をみんなにしょうかいする")),
-    join(w(9), literal("を大切にして", "をたいせつにして"), d, literal("で過ごす", "ですごす")),
-    join(f, literal("で"), w(0), literal("について話す", "についてはなす")),
-    join(literal("朝は", "あさは"), d, literal("で"), w(1), literal("を確かめる", "をたしかめる")),
-    join(w(2), literal("を見ながら", "をみながら"), f, literal("でひと休みする", "でひとやすみする")),
-    join(d, literal("で"), w(3), literal("の新しい見方を考える", "のあたらしいみかたをかんがえる")),
-    join(w(4), literal("について"), d, literal("で聞いてみる", "できいてみる")),
-    join(f, literal("に"), w(5), literal("の案内を置く", "のあんないをおく")),
-    join(d, literal("で"), w(6), literal("をもう一度探す", "をもういちどさがす")),
-    join(w(7), literal("と"), w(8), literal("を覚えて", "をおぼえて"), f, literal("へ進む", "へすすむ")),
-    join(d, literal("の帰りに", "のかえりに"), w(9), literal("を思い出す", "をおもいだす")),
-    join(f, literal("ができたら友達に知らせる", "ができたらともだちにしらせる")),
-    join(d, literal("で見つけた", "でみつけた"), w(1), literal("を友達に伝える", "をともだちにつたえる")),
+    phrase(`${d.text}で${w(0).text}を見つける`, `${d.reading}で${w(0).reading}をみつける`),
+    phrase(`${w(1).text}の名前を覚える`, `${w(1).reading}のなまえをおぼえる`),
+    phrase(`${w(2).text}と${w(3).text}を比べる`, `${w(2).reading}と${w(3).reading}をくらべる`),
+    phrase(`朝に${w(4).text}を確かめる`, `あさに${w(4).reading}をたしかめる`),
+    phrase(`${w(5).text}を友達に見せる`, `${w(5).reading}をともだちにみせる`),
+    phrase(`${w(6).text}を探しながら${d.text}を歩く`, `${w(6).reading}をさがしながら${d.reading}をあるく`),
+    phrase(`${w(7).text}を目印に進む`, `${w(7).reading}をめじるしにすすむ`),
+    phrase(`${w(8).text}の近くで休む`, `${w(8).reading}のちかくでやすむ`),
+    phrase(`${w(9).text}について話す`, `${w(9).reading}についてはなす`),
+    phrase(`${w(0).text}をノートに書く`, `${w(0).reading}をのーとにかく`),
+    phrase(`昼に${w(1).text}をもう一度見る`, `ひるに${w(1).reading}をもういちどみる`),
+    phrase(`${w(2).text}を大切に使う`, `${w(2).reading}をたいせつにつかう`),
+    phrase(`${w(3).text}の場所を覚える`, `${w(3).reading}のばしょをおぼえる`),
+    phrase(`${w(4).text}を見つけて笑顔になる`, `${w(4).reading}をみつけてえがおになる`),
+    phrase(`${w(5).text}をみんなに紹介する`, `${w(5).reading}をみんなにしょうかいする`),
+    phrase(`${w(6).text}と${w(7).text}を探しに行く`, `${w(6).reading}と${w(7).reading}をさがしにいく`),
+    phrase(`${w(8).text}を見ながら帰る`, `${w(8).reading}をみながらかえる`),
+    phrase(`${f.text}の場所を確かめる`, `${f.reading}のばしょをたしかめる`),
+    phrase(`${w(9).text}を覚えて${f.text}へ進む`, `${w(9).reading}をおぼえて${f.reading}へすすむ`),
+    phrase(`${f.text}ができたら${w(0).text}を見に行く`, `${f.reading}ができたら${w(0).reading}をみにいく`),
   ];
 }
 
@@ -50,26 +45,26 @@ function levelTwo(context: PhraseContext): TextReading[] {
   const f = context.focus;
   const w = (index: number) => at(context, index);
   return [
-    join(d, literal("で"), w(0), literal("を手がかりに次の場所を探そう", "をてがかりにつぎのばしょをさがそう")),
-    join(d, literal("で"), w(1), literal("と"), w(2), literal("を比べて気になる方を選ぶ", "をくらべてきになるほうをえらぶ")),
-    join(f, literal("へ向かう前に", "へむかうまえに"), w(3), literal("を忘れていないか確かめる", "をわすれていないかたしかめる")),
-    join(w(4), literal("を見つけたら", "をみつけたら"), d, literal("の仲間に声をかける", "のなかまにこえをかける")),
-    join(d, literal("の地図に", "のちずに"), w(5), literal("の場所を書き込む", "のばしょをかきこむ")),
-    join(w(6), literal("と"), w(7), literal("を組み合わせて"), f, literal("のアイデアを考える", "のあいであをかんがえる")),
-    join(d, literal("で"), w(8), literal("を見つけるまで別の道も試してみる", "をみつけるまでべつのみちもためしてみる")),
-    join(w(9), literal("の特徴を覚えて", "のとくちょうをおぼえて"), f, literal("の近くまで進む", "のちかくまですすむ")),
-    join(d, literal("で集めた", "であつめた"), w(0), literal("の情報を短くまとめる", "のじょうほうをみじかくまとめる")),
-    join(f, literal("の前で"), w(1), literal("について友達と話してみる", "についてともだちとはなしてみる")),
-    join(d, literal("を歩きながら", "をあるきながら"), w(2), literal("と"), w(3), literal("の違いを探す", "のちがいをさがす")),
-    join(w(4), literal("を目印にして", "をめじるしにして"), d, literal("の知らない場所へ行ってみる", "のしらないばしょへいってみる")),
-    join(f, literal("に合う", "にあう"), w(5), literal("の使い方をみんなで決める", "のつかいかたをみんなできめる")),
-    join(d, literal("で"), w(6), literal("の写真を撮り今日の記録に残す", "のしゃしんをとりきょうのきろくにのこす")),
-    join(w(7), literal("について調べたことを", "についてしらべたことを"), f, literal("の案内に加える", "のあんないにくわえる")),
-    join(d, literal("で迷ったら", "でまよったら"), w(8), literal("を探して現在地を確かめる", "をさがしてげんざいちをたしかめる")),
-    join(f, literal("が見えてきたら", "がみえてきたら"), w(9), literal("をもう一度確認する", "をもういちどかくにんする")),
-    join(d, literal("のおすすめとして", "のおすすめとして"), w(0), literal("を一つ選んで紹介する", "をひとつえらんでしょうかいする")),
-    join(w(1), literal("と"), w(4), literal("から思いついたことを", "からおもいついたことを"), f, literal("で試す", "でためす")),
-    join(f, literal("を完成させたら", "をかんせいさせたら"), d, literal("の次の景色を見に行こう", "のつぎのけしきをみにいこう")),
+    phrase(`${w(0).text}を手がかりに次の場所を探そう`, `${w(0).reading}をてがかりにつぎのばしょをさがそう`),
+    phrase(`${w(1).text}と${w(2).text}を比べて好きな方を選ぶ`, `${w(1).reading}と${w(2).reading}をくらべてすきなほうをえらぶ`),
+    phrase(`${w(3).text}を忘れずに${d.text}へ出発する`, `${w(3).reading}をわすれずに${d.reading}へしゅっぱつする`),
+    phrase(`${w(4).text}を見つけたら仲間に知らせる`, `${w(4).reading}をみつけたらなかまにしらせる`),
+    phrase(`${d.text}の地図に${w(5).text}の場所を書き込む`, `${d.reading}のちずに${w(5).reading}のばしょをかきこむ`),
+    phrase(`${w(6).text}と${w(7).text}を組み合わせて新しい遊びを考える`, `${w(6).reading}と${w(7).reading}をくみあわせてあたらしいあそびをかんがえる`),
+    phrase(`${w(8).text}を見つけるまで別の道も試す`, `${w(8).reading}をみつけるまでべつのみちもためす`),
+    phrase(`${w(9).text}の特徴を覚えて次へ進む`, `${w(9).reading}のとくちょうをおぼえてつぎへすすむ`),
+    phrase(`${w(0).text}の情報を短くまとめる`, `${w(0).reading}のじょうほうをみじかくまとめる`),
+    phrase(`${w(1).text}について友達と話してみる`, `${w(1).reading}についてともだちとはなしてみる`),
+    phrase(`${w(2).text}と${w(3).text}の違いを探す`, `${w(2).reading}と${w(3).reading}のちがいをさがす`),
+    phrase(`${w(4).text}を目印に知らない道へ進む`, `${w(4).reading}をめじるしにしらないみちへすすむ`),
+    phrase(`${w(5).text}の使い方をみんなで決める`, `${w(5).reading}のつかいかたをみんなできめる`),
+    phrase(`${w(6).text}の写真を今日の記録に残す`, `${w(6).reading}のしゃしんをきょうのきろくにのこす`),
+    phrase(`${w(7).text}について調べたことを案内に加える`, `${w(7).reading}についてしらべたことをあんないにくわえる`),
+    phrase(`${w(8).text}を探して現在地を確かめる`, `${w(8).reading}をさがしてげんざいちをたしかめる`),
+    phrase(`${w(9).text}をもう一度見て気づきを増やす`, `${w(9).reading}をもういちどみてきづきをふやす`),
+    phrase(`${f.text}に合うアイデアを一つ選ぶ`, `${f.reading}にあうあいであをひとつえらぶ`),
+    phrase(`${w(0).text}と${w(4).text}から思いついたことを${f.text}で試す`, `${w(0).reading}と${w(4).reading}からおもいついたことを${f.reading}でためす`),
+    phrase(`${f.text}が完成したら次の景色を見に行こう`, `${f.reading}がかんせいしたらつぎのけしきをみにいこう`),
   ];
 }
 
@@ -78,26 +73,26 @@ function levelThree(context: PhraseContext): TextReading[] {
   const f = context.focus;
   const w = (index: number) => at(context, index);
   return [
-    join(d, literal("で"), w(0), literal("を観察し、最初に気づいた特徴を記録します。", "をかんさつし、さいしょにきづいたとくちょうをきろくします。")),
-    join(w(1), literal("と"), w(2), literal("を同じ条件で比べ、違いを表にまとめます。", "をおなじじょうけんでくらべ、ちがいをひょうにまとめます。")),
-    join(f, literal("の周りで", "のまわりで"), w(3), literal("がどのように変化するか確かめます。", "がどのようにへんかするかたしかめます。")),
-    join(d, literal("の案内を読み、"), w(4), literal("について分からない言葉を調べます。", "についてわからないことばをしらべます。")),
-    join(w(5), literal("から予想したことを、"), f, literal("で実際に確かめてみます。", "でじっさいにたしかめてみます。")),
-    join(d, literal("で集めた", "であつめた"), w(6), literal("の情報を、見やすい順番に並べ直します。", "のじょうほうを、みやすいじゅんばんにならべなおします。")),
-    join(w(7), literal("の仕組みを知るため、"), d, literal("で小さな疑問を一つ選びます。", "でちいさなぎもんをひとつえらびます。")),
-    join(f, literal("を作る前に、"), w(8), literal("について安全に確かめる方法を考えます。", "についてあんぜんにたしかめるほうほうをかんがえます。")),
-    join(d, literal("から見える", "からみえる"), w(9), literal("の様子を、短い文章で分かりやすく伝えます。", "のようすを、みじかいぶんしょうでわかりやすくつたえます。")),
-    join(w(0), literal("について調べた結果を、"), f, literal("の新しい展示に反映します。", "のあたらしいてんじにはんえいします。")),
-    join(d, literal("で"), w(1), literal("をもう一度観察し、最初の予想と違った点を探します。", "をもういちどかんさつし、さいしょのよそうとちがったてんをさがします。")),
-    join(w(2), literal("と"), w(5), literal("の関係を考えながら、"), f, literal("の地図にメモを残します。", "のかんけいをかんがえながら、のちずにめもをのこします。")),
-    join(d, literal("で見つけた", "でみつけた"), w(3), literal("の特徴を、別の人にも伝わる言葉に直します。", "のとくちょうを、べつのひとにもつたわることばになおします。")),
-    join(f, literal("の近くで", "のちかくで"), w(4), literal("を調べる手順を決め、順番どおりに試します。", "をしらべるてじゅんをきめ、じゅんばんどおりにためします。")),
-    join(w(6), literal("について集めた記録から、"), d, literal("で起きている変化を考えます。", "についてあつめたきろくから、でおきているへんかをかんがえます。")),
-    join(d, literal("の仲間と", "のなかまと"), w(7), literal("について話し、それぞれの予想を比べます。", "についてはなし、それぞれのよそうをくらべます。")),
-    join(f, literal("に必要な", "にひつような"), w(8), literal("の情報を選び、余分な内容を整理します。", "のじょうほうをえらび、よぶんなないようをせいりします。")),
-    join(w(9), literal("を観察した記録を", "をかんさつしたきろくを"), d, literal("の次の調査にも使える形で残します。", "のつぎのちょうさにもつかえるかたちでのこします。")),
-    join(d, literal("で得た発見を", "でえたはっけんを"), f, literal("の説明に加え、読みやすく整えます。", "のせつめいにくわえ、よみやすくととのえます。")),
-    join(f, literal("が完成したら、"), w(0), literal("について新しく生まれた疑問を次の課題にします。", "がかんせいしたら、についてあたらしくうまれたぎもんをつぎのかだいにします。")),
+    phrase(`${d.text}で${w(0).text}を観察し、最初に気づいた特徴を記録します。`, `${d.reading}で${w(0).reading}をかんさつし、さいしょにきづいたとくちょうをきろくします。`),
+    phrase(`${w(1).text}と${w(2).text}を同じ条件で比べ、違いを表にまとめます。`, `${w(1).reading}と${w(2).reading}をおなじじょうけんでくらべ、ちがいをひょうにまとめます。`),
+    phrase(`${w(3).text}がどのように変化するか、時間を決めて確かめます。`, `${w(3).reading}がどのようにへんかするか、じかんをきめてたしかめます。`),
+    phrase(`${w(4).text}について分からない言葉を調べ、意味をメモします。`, `${w(4).reading}についてわからないことばをしらべ、いみをめもします。`),
+    phrase(`${w(5).text}から予想したことを、実際の結果と比べます。`, `${w(5).reading}からよそうしたことを、じっさいのけっかとくらべます。`),
+    phrase(`${d.text}で集めた${w(6).text}の情報を、見やすい順番に並べます。`, `${d.reading}であつめた${w(6).reading}のじょうほうを、みやすいじゅんばんにならべます。`),
+    phrase(`${w(7).text}の仕組みを知るため、小さな疑問を一つ選びます。`, `${w(7).reading}のしくみをしるため、ちいさなぎもんをひとつえらびます。`),
+    phrase(`${w(8).text}を安全に確かめる方法を、始める前に考えます。`, `${w(8).reading}をあんぜんにたしかめるほうほうを、はじめるまえにかんがえます。`),
+    phrase(`${w(9).text}の様子を、短い文章で分かりやすく伝えます。`, `${w(9).reading}のようすを、みじかいぶんしょうでわかりやすくつたえます。`),
+    phrase(`${w(0).text}について調べた結果を、新しい展示に反映します。`, `${w(0).reading}についてしらべたけっかを、あたらしいてんじにはんえいします。`),
+    phrase(`${w(1).text}をもう一度観察し、最初の予想と違う点を探します。`, `${w(1).reading}をもういちどかんさつし、さいしょのよそうとちがうてんをさがします。`),
+    phrase(`${w(2).text}と${w(5).text}の関係を考え、地図にメモを残します。`, `${w(2).reading}と${w(5).reading}のかんけいをかんがえ、ちずにめもをのこします。`),
+    phrase(`${w(3).text}の特徴を、初めて見る人にも伝わる言葉に直します。`, `${w(3).reading}のとくちょうを、はじめてみるひとにもつたわることばになおします。`),
+    phrase(`${w(4).text}を調べる手順を決め、順番どおりに試します。`, `${w(4).reading}をしらべるてじゅんをきめ、じゅんばんどおりにためします。`),
+    phrase(`${w(6).text}の記録から、${d.text}で起きている変化を考えます。`, `${w(6).reading}のきろくから、${d.reading}でおきているへんかをかんがえます。`),
+    phrase(`${w(7).text}について仲間と話し、それぞれの予想を比べます。`, `${w(7).reading}についてなかまとはなし、それぞれのよそうをくらべます。`),
+    phrase(`${w(8).text}の情報を選び、必要な内容だけに整理します。`, `${w(8).reading}のじょうほうをえらび、ひつようなないようだけにせいりします。`),
+    phrase(`${w(9).text}を観察した記録を、次の調査にも使える形で残します。`, `${w(9).reading}をかんさつしたきろくを、つぎのちょうさにもつかえるかたちでのこします。`),
+    phrase(`${f.text}の説明に${w(0).text}の発見を加え、読みやすく整えます。`, `${f.reading}のせつめいに${w(0).reading}のはっけんをくわえ、よみやすくととのえます。`),
+    phrase(`${f.text}が完成したら、新しく生まれた疑問を次の課題にします。`, `${f.reading}がかんせいしたら、あたらしくうまれたぎもんをつぎのかだいにします。`),
   ];
 }
 
@@ -106,26 +101,26 @@ function levelFour(context: PhraseContext): TextReading[] {
   const f = context.focus;
   const w = (index: number) => at(context, index);
   return [
-    join(d, literal("の今日の予定を確認し、"), w(0), literal("に関する作業から順番に進めます。", "のきょうのよていをかくにんし、にかんするさぎょうからじゅんばんにすすめます。")),
-    join(w(1), literal("の資料は午後3時までに共有し、"), f, literal("の担当者にも知らせます。", "のしりょうはごご3じまでにきょうゆうし、のたんとうしゃにもしらせます。")),
-    join(d, literal("を初めて利用する方へ、"), w(2), literal("の場所と使い方を分かりやすく案内します。", "をはじめてりようするかたへ、のばしょとつかいかたをわかりやすくあんないします。")),
-    join(f, literal("で扱う", "であつかう"), w(3), literal("の内容に変更がないか、公開前にもう一度確認します。", "のないようにへんこうがないか、こうかいまえにもういちどかくにんします。")),
-    join(w(4), literal("について届いた意見を整理し、"), d, literal("の次の改善案に反映します。", "についてとどいたいけんをせいりし、のつぎのかいぜんあんにはんえいします。")),
-    join(d, literal("で質問を受けたときは、"), w(5), literal("の内容を確認してから正確に返答します。", "でしつもんをうけたときは、のないようをかくにんしてからせいかくにへんとうします。")),
-    join(f, literal("に必要な", "にひつような"), w(6), literal("の数を確認し、不足している分だけ準備します。", "のかずをかくにんし、ふそくしているぶんだけじゅんびします。")),
-    join(w(7), literal("を紹介する文章は、"), d, literal("を知らない人にも伝わる表現に直します。", "をしょうかいするぶんしょうは、をしらないひとにもつたわるひょうげんになおします。")),
-    join(literal("作業が終わったら、", "さぎょうがおわったら、"), w(8), literal("の進み具合を記録し、"), f, literal("の担当へ報告します。", "のすすみぐあいをきろくし、のたんとうへほうこくします。")),
-    join(d, literal("の打ち合わせでは、"), w(9), literal("について相手の話を最後まで聞いてから意見を伝えます。", "のうちあわせでは、についてあいてのはなしをさいごまできいてからいけんをつたえます。")),
-    join(f, literal("に掲載する", "にけいさいする"), w(0), literal("の写真には、内容が分かる短い説明を添えます。", "のしゃしんには、ないようがわかるみじかいせつめいをそえます。")),
-    join(d, literal("の会議は10時開始です。"), w(1), literal("の資料を確認して5分前に準備を終えます。", "のかいぎは10じかいしです。のしりょうをかくにんして5ふんまえにじゅんびをおえます。")),
-    join(w(2), literal("の在庫を確かめ、"), f, literal("に必要な数だけ追加で注文します。", "のざいこをたしかめ、にひつようなかずだけついかでちゅうもんします。")),
-    join(d, literal("で扱う", "であつかう"), w(3), literal("の情報は、日付と出典を確認してから更新します。", "のじょうほうは、ひづけとしゅってんをかくにんしてからこうしんします。")),
-    join(w(4), literal("についていただいた意見を、"), f, literal("を使いやすくするための改善に生かします。", "についていただいたいけんを、をつかいやすくするためのかいぜんにいかします。")),
-    join(d, literal("の受付では、"), w(5), literal("に関する確認事項を一つずつ順番に案内します。", "のうけつけでは、にかんするかくにんじこうをひとつずつじゅんばんにあんないします。")),
-    join(f, literal("で使う", "でつかう"), w(6), literal("の担当が変わったため、連絡先と引き継ぎ内容を更新しました。", "のたんとうがかわったため、れんらくさきとひきつぎないようをこうしんしました。")),
-    join(d, literal("の共有資料から", "のきょうゆうしりょうから"), w(7), literal("に関する要点を3つ選び、短くまとめます。", "にかんするようてんを3つえらび、みじかくまとめます。")),
-    join(w(8), literal("の準備が整ったら、"), f, literal("の担当者へ完了した内容を具体的に報告します。", "のじゅんびがととのったら、のたんとうしゃへかんりょうしたないようをぐたいてきにほうこくします。")),
-    join(f, literal("が完成した後も、"), d, literal("で"), w(9), literal("を使う人の声を集めて改善を続けます。", "がかんせいしたあとも、でをつかうひとのこえをあつめてかいぜんをつづけます。")),
+    phrase(`${d.text}の今日の予定を確認し、${w(0).text}に関する作業から進めます。`, `${d.reading}のきょうのよていをかくにんし、${w(0).reading}にかんするさぎょうからすすめます。`),
+    phrase(`${w(1).text}の資料は午後3時までに共有し、担当者にも知らせます。`, `${w(1).reading}のしりょうはごご3じまでにきょうゆうし、たんとうしゃにもしらせます。`),
+    phrase(`初めて利用する方へ、${w(2).text}の場所と使い方を案内します。`, `はじめてりようするかたへ、${w(2).reading}のばしょとつかいかたをあんないします。`),
+    phrase(`${w(3).text}の内容に変更がないか、公開前にもう一度確認します。`, `${w(3).reading}のないようにへんこうがないか、こうかいまえにもういちどかくにんします。`),
+    phrase(`${w(4).text}について届いた意見を整理し、次の改善案に反映します。`, `${w(4).reading}についてとどいたいけんをせいりし、つぎのかいぜんあんにはんえいします。`),
+    phrase(`質問を受けたときは、${w(5).text}の内容を確かめてから返答します。`, `しつもんをうけたときは、${w(5).reading}のないようをたしかめてからへんとうします。`),
+    phrase(`${w(6).text}の数を確認し、不足している分だけ準備します。`, `${w(6).reading}のかずをかくにんし、ふそくしているぶんだけじゅんびします。`),
+    phrase(`${w(7).text}を紹介する文章は、初めての人にも伝わる表現に直します。`, `${w(7).reading}をしょうかいするぶんしょうは、はじめてのひとにもつたわるひょうげんになおします。`),
+    phrase(`作業が終わったら、${w(8).text}の進み具合を記録して報告します。`, `さぎょうがおわったら、${w(8).reading}のすすみぐあいをきろくしてほうこくします。`),
+    phrase(`${w(9).text}について話すときは、相手の話を最後まで聞きます。`, `${w(9).reading}についてはなすときは、あいてのはなしをさいごまでききます。`),
+    phrase(`${w(0).text}の写真には、内容が分かる短い説明を添えます。`, `${w(0).reading}のしゃしんには、ないようがわかるみじかいせつめいをそえます。`),
+    phrase(`会議は10時開始です。${w(1).text}の資料を確認して5分前に準備を終えます。`, `かいぎは10じかいしです。${w(1).reading}のしりょうをかくにんして5ふんまえにじゅんびをおえます。`),
+    phrase(`${w(2).text}の在庫を確かめ、必要な数だけ追加で注文します。`, `${w(2).reading}のざいこをたしかめ、ひつようなかずだけついかでちゅうもんします。`),
+    phrase(`${w(3).text}の情報は、日付と出典を確認してから更新します。`, `${w(3).reading}のじょうほうは、ひづけとしゅってんをかくにんしてからこうしんします。`),
+    phrase(`${w(4).text}についていただいた意見を、使いやすさの改善に生かします。`, `${w(4).reading}についていただいたいけんを、つかいやすさのかいぜんにいかします。`),
+    phrase(`受付では、${w(5).text}に関する確認事項を一つずつ案内します。`, `うけつけでは、${w(5).reading}にかんするかくにんじこうをひとつずつあんないします。`),
+    phrase(`${w(6).text}の担当が変わったため、連絡先と引き継ぎ内容を更新しました。`, `${w(6).reading}のたんとうがかわったため、れんらくさきとひきつぎないようをこうしんしました。`),
+    phrase(`${w(7).text}に関する要点を3つ選び、共有資料に短くまとめます。`, `${w(7).reading}にかんするようてんを3つえらび、きょうゆうしりょうにみじかくまとめます。`),
+    phrase(`${w(8).text}の準備が整ったら、${f.text}の担当者へ完了を報告します。`, `${w(8).reading}のじゅんびがととのったら、${f.reading}のたんとうしゃへかんりょうをほうこくします。`),
+    phrase(`${f.text}が完成した後も、${w(9).text}を使う人の声を集めて改善を続けます。`, `${f.reading}がかんせいしたあとも、${w(9).reading}をつかうひとのこえをあつめてかいぜんをつづけます。`),
   ];
 }
 
@@ -134,26 +129,26 @@ function levelFive(context: PhraseContext): TextReading[] {
   const f = context.focus;
   const w = (index: number) => at(context, index);
   return [
-    join(d, literal("の未来を考えるため、"), w(0), literal("が暮らしに与える変化と必要な工夫を整理します。", "のみらいをかんがえるため、がくらしにあたえるへんかとひつようなくふうをせいりします。")),
-    join(w(1), literal("を長く使い続ける方法を考え、"), f, literal("の設計に環境への配慮を加えます。", "をながくつかいつづけるほうほうをかんがえ、のせっけいにかんきょうへのはいりょをくわえます。")),
-    join(d, literal("で"), w(2), literal("を導入する前に、便利さだけでなく安全性と管理方法も確認します。", "でをどうにゅうするまえに、べんりさだけでなくあんぜんせいとかんりほうほうもかくにんします。")),
-    join(f, literal("を多くの人が使えるよう、"), w(3), literal("に関する案内を短い言葉と分かりやすい表示で整えます。", "をおおくのひとがつかえるよう、にかんするあんないをみじかいことばとわかりやすいひょうじでととのえます。")),
-    join(w(4), literal("について集めたデータを比較し、"), d, literal("の次の計画で優先する課題を決めます。", "についてあつめたでーたをひかくし、のつぎのけいかくでゆうせんするかだいをきめます。")),
-    join(d, literal("の新しい仕組みを試すときは、"), w(5), literal("に詳しい人と利用する人の両方から意見を集めます。", "のあたらしいしくみをためすときは、にくわしいひととりようするひとのりょうほうからいけんをあつめます。")),
-    join(f, literal("に必要な", "にひつような"), w(6), literal("を3つの視点から確認し、問題が起きた場合の対応も準備します。", "を3つのしてんからかくにんし、もんだいがおきたばあいのたいおうもじゅんびします。")),
-    join(w(7), literal("の価値を未来へ残すため、"), d, literal("で今できることと長期的に続けることを分けて考えます。", "のかちをみらいへのこすため、でいまできることとちょうきてきにつづけることをわけてかんがえます。")),
-    join(d, literal("で"), w(8), literal("を利用する人の動きを想像し、迷いやすい場所や分かりにくい表示を改善します。", "でをりようするひとのうごきをそうぞうし、まよいやすいばしょやわかりにくいひょうじをかいぜんします。")),
-    join(f, literal("の完成後を想定し、"), w(9), literal("に関する記録を誰でも確認できる形で残す方法を決めます。", "のかんせいごをそうていし、にかんするきろくをだれでもかくにんできるかたちでのこすほうほうをきめます。")),
-    join(w(0), literal("と"), w(1), literal("を組み合わせた案について、"), d, literal("の利用者に分かりやすく説明して意見を聞きます。", "をくみあわせたあんについて、のりようしゃにわかりやすくせつめいしていけんをききます。")),
-    join(d, literal("の計画を更新する前に、"), w(2), literal("の費用、効果、続けやすさを比べて判断材料をそろえます。", "のけいかくをこうしんするまえに、のひよう、こうか、つづけやすさをくらべてはんだんざいりょうをそろえます。")),
-    join(f, literal("で"), w(3), literal("を活用する場合は、便利な点と注意すべき点を同じ資料にまとめます。", "でをかつようするばあいは、べんりなてんとちゅういすべきてんをおなじしりょうにまとめます。")),
-    join(w(4), literal("について異なる意見が出たときは、"), d, literal("の目的に戻って共通する部分から整理します。", "についてことなるいけんがでたときは、のもくてきにもどってきょうつうするぶぶんからせいりします。")),
-    join(d, literal("で起きる変化を予測するため、"), w(5), literal("に関する過去の記録と現在のデータを照らし合わせます。", "でおきるへんかをよそくするため、にかんするかこのきろくとげんざいのでーたをてらしあわせます。")),
-    join(f, literal("を次の世代へ引き継ぐため、"), w(6), literal("の使い方だけでなく判断した理由も文章で残します。", "をつぎのせだいへひきつぐため、のつかいかただけでなくはんだんしたりゆうもぶんしょうでのこします。")),
-    join(w(7), literal("の新しい可能性を考えながら、"), d, literal("で守るべきルールと自由に試せる範囲を決めます。", "のあたらしいかのうせいをかんがえながら、でまもるべきるーるとじゆうにためせるはんいをきめます。")),
-    join(d, literal("の完成度を高めるため、"), w(8), literal("に関する小さな不便を集め、優先度の高いものから改善します。", "のかんせいどをたかめるため、にかんするちいさなふべんをあつめ、ゆうせんどのたかいものからかいぜんします。")),
-    join(f, literal("を公開する前に、"), w(9), literal("について初めて知る人にも内容が伝わるか最終確認します。", "をこうかいするまえに、についてはじめてしるひとにもないようがつたわるかさいしゅうかくにんします。")),
-    join(f, literal("が完成したら、"), d, literal("で得た学びを振り返り、次に作る世界へ生かすことを決めます。", "がかんせいしたら、でえたまなびをふりかえり、つぎにつくるせかいへいかすことをきめます。")),
+    phrase(`${d.text}の未来を考えるため、${w(0).text}が暮らしに与える変化を整理します。`, `${d.reading}のみらいをかんがえるため、${w(0).reading}がくらしにあたえるへんかをせいりします。`),
+    phrase(`${w(1).text}を長く使い続ける方法を考え、環境への配慮も加えます。`, `${w(1).reading}をながくつかいつづけるほうほうをかんがえ、かんきょうへのはいりょもくわえます。`),
+    phrase(`${w(2).text}を導入する前に、便利さだけでなく安全性と管理方法も確認します。`, `${w(2).reading}をどうにゅうするまえに、べんりさだけでなくあんぜんせいとかんりほうほうもかくにんします。`),
+    phrase(`${w(3).text}を多くの人が使えるよう、案内を短い言葉で整えます。`, `${w(3).reading}をおおくのひとがつかえるよう、あんないをみじかいことばでととのえます。`),
+    phrase(`${w(4).text}について集めたデータを比較し、次に優先する課題を決めます。`, `${w(4).reading}についてあつめたでーたをひかくし、つぎにゆうせんするかだいをきめます。`),
+    phrase(`${w(5).text}を試すときは、詳しい人と利用する人の両方から意見を集めます。`, `${w(5).reading}をためすときは、くわしいひととりようするひとのりょうほうからいけんをあつめます。`),
+    phrase(`${w(6).text}を3つの視点から確認し、問題が起きた場合の対応も準備します。`, `${w(6).reading}を3つのしてんからかくにんし、もんだいがおきたばあいのたいおうもじゅんびします。`),
+    phrase(`${w(7).text}の価値を未来へ残すため、今できることと長く続けることを分けます。`, `${w(7).reading}のかちをみらいへのこすため、いまできることとながくつづけることをわけます。`),
+    phrase(`${w(8).text}を利用する人の動きを想像し、分かりにくい表示を改善します。`, `${w(8).reading}をりようするひとのうごきをそうぞうし、わかりにくいひょうじをかいぜんします。`),
+    phrase(`${w(9).text}の記録を、誰でも確認できる形で残す方法を決めます。`, `${w(9).reading}のきろくを、だれでもかくにんできるかたちでのこすほうほうをきめます。`),
+    phrase(`${w(0).text}と${w(1).text}を組み合わせた案を説明し、利用者の意見を聞きます。`, `${w(0).reading}と${w(1).reading}をくみあわせたあんをせつめいし、りようしゃのいけんをききます。`),
+    phrase(`${w(2).text}の費用、効果、続けやすさを比べ、判断材料をそろえます。`, `${w(2).reading}のひよう、こうか、つづけやすさをくらべ、はんだんざいりょうをそろえます。`),
+    phrase(`${w(3).text}を活用するときは、便利な点と注意点を同じ資料にまとめます。`, `${w(3).reading}をかつようするときは、べんりなてんとちゅういてんをおなじしりょうにまとめます。`),
+    phrase(`${w(4).text}について意見が分かれたときは、目的に戻って共通点から整理します。`, `${w(4).reading}についていけんがわかれたときは、もくてきにもどってきょうつうてんからせいりします。`),
+    phrase(`${w(5).text}の変化を予測するため、過去の記録と現在のデータを比べます。`, `${w(5).reading}のへんかをよそくするため、かこのきろくとげんざいのでーたをくらべます。`),
+    phrase(`${w(6).text}を次の世代へ引き継ぐため、使い方と判断した理由を残します。`, `${w(6).reading}をつぎのせだいへひきつぐため、つかいかたとはんだんしたりゆうをのこします。`),
+    phrase(`${w(7).text}の新しい可能性を考え、守るルールと試せる範囲を決めます。`, `${w(7).reading}のあたらしいかのうせいをかんがえ、まもるるーるとためせるはんいをきめます。`),
+    phrase(`${w(8).text}に関する小さな不便を集め、優先度の高いものから改善します。`, `${w(8).reading}にかんするちいさなふべんをあつめ、ゆうせんどのたかいものからかいぜんします。`),
+    phrase(`${f.text}を公開する前に、${w(9).text}を初めて知る人にも伝わるか確認します。`, `${f.reading}をこうかいするまえに、${w(9).reading}をはじめてしるひとにもつたわるかかくにんします。`),
+    phrase(`${f.text}が完成したら、${d.text}で得た学びを次に作る世界へ生かします。`, `${f.reading}がかんせいしたら、${d.reading}でえたまなびをつぎにつくるせかいへいかします。`),
   ];
 }
 
@@ -161,18 +156,18 @@ const builders = [levelOne, levelTwo, levelThree, levelFour, levelFive] as const
 
 export function diversifyPhrases(catalog: ContentCatalog): ContentCatalog {
   const used = new Set<string>();
-  const phrases = catalog.phrases.map((phrase) => {
-    const mission = catalog.missions.find((item) => item.id === phrase.missionId);
-    if (!mission) throw new Error(`Mission not found for ${phrase.id}`);
+  const phrases = catalog.phrases.map((currentPhrase) => {
+    const mission = catalog.missions.find((item) => item.id === currentPhrase.missionId);
+    if (!mission) throw new Error(`Mission not found for ${currentPhrase.id}`);
     const district = catalog.districts.find((item) => item.id === mission.districtId);
-    if (!district) throw new Error(`District not found for ${phrase.id}`);
+    if (!district) throw new Error(`District not found for ${currentPhrase.id}`);
     const zoneSource = zoneSources.find((zone) => zone.id === mission.zoneId);
     const districtSource = zoneSource?.districts.find((item) => item.name === district.name);
-    if (!districtSource) throw new Error(`District source not found for ${phrase.id}`);
+    if (!districtSource) throw new Error(`District source not found for ${currentPhrase.id}`);
 
     const stageIndex = (mission.number - 1) % missionStages.length;
     const stage = missionStages[stageIndex];
-    if (!stage) throw new Error(`Mission stage not found for ${phrase.id}`);
+    if (!stage) throw new Error(`Mission stage not found for ${currentPhrase.id}`);
     const offset = (stageIndex * 3) % districtSource.words.length;
     const rotatedWords = districtSource.words.map((_, index) =>
       districtSource.words[(offset + index) % districtSource.words.length]!,
@@ -188,16 +183,27 @@ export function diversifyPhrases(catalog: ContentCatalog): ContentCatalog {
     const builder = builders[mission.level - 1];
     if (!builder) throw new Error(`Phrase builder not found for level ${mission.level}`);
     const replacements = builder(context);
-    const replacement = replacements[phrase.order - 1];
-    if (!replacement) throw new Error(`Replacement phrase not found for ${phrase.id}`);
-    if (used.has(replacement.text)) throw new Error(`Duplicate diversified phrase: ${replacement.text}`);
-    used.add(replacement.text);
+    const replacement = replacements[currentPhrase.order - 1];
+    if (!replacement) throw new Error(`Replacement phrase not found for ${currentPhrase.id}`);
+
+    let finalText = replacement.text;
+    let finalReading = replacement.reading;
+    if (used.has(finalText)) {
+      finalText = `${district.name}で${finalText}`;
+      finalReading = `${district.reading}で${finalReading}`;
+    }
+    if (used.has(finalText)) {
+      finalText = `${context.focus.text}で${finalText}`;
+      finalReading = `${context.focus.reading}で${finalReading}`;
+    }
+    if (used.has(finalText)) throw new Error(`Duplicate diversified phrase: ${finalText}`);
+    used.add(finalText);
 
     return {
-      ...phrase,
-      text: replacement.text,
-      reading: replacement.reading,
-      romanization: toCanonicalRoman(replacement.reading),
+      ...currentPhrase,
+      text: finalText,
+      reading: finalReading,
+      romanization: toCanonicalRoman(finalReading),
     };
   });
 
