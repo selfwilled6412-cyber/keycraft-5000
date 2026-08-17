@@ -1,0 +1,46 @@
+{
+  "name": "keycraft-5000",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && wrangler dev --local",
+    "dev:ui": "vite",
+    "generate": "tsx scripts/generate-content.ts",
+    "validate:content": "tsx scripts/validate-content.ts",
+    "stats:content": "tsx scripts/content-stats.ts",
+    "types:worker": "wrangler types worker-configuration.d.ts",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm run generate && tsc -b && vite build",
+    "smoke": "tsx scripts/runtime-smoke.ts",
+    "check": "npm run generate && npm run validate:content && npm run lint && npm run typecheck && npm run test && npm run build && npm run smoke",
+    "deploy:dry": "npm run build && wrangler deploy --dry-run",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.8.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.21.3",
+    "@eslint/js": "^9.33.0",
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.2",
+    "eslint": "^9.33.0",
+    "eslint-plugin-react-hooks": "^6.0.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.40.0",
+    "vite": "^7.1.3",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.30.0"
+  }
+}
