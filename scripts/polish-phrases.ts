@@ -1,5 +1,7 @@
 import { toCanonicalRoman } from "../src/core/typing/romanization";
-import type { ContentCatalog } from "../src/content/types";
+import { zoneSources } from "../src/content/source";
+import type { ContentCatalog, TextReading } from "../src/content/types";
+import { buildAlternateScene } from "./alternate-scenes";
 
 type Replacement = readonly [textFrom: string, textTo: string, readingFrom: string, readingTo: string];
 
@@ -78,10 +80,51 @@ function replaceSuffix(text: string, reading: string): [string, string] {
   return [text, reading];
 }
 
+function findPhraseContext(catalog: ContentCatalog, missionId: string) {
+  const mission = catalog.missions.find((item) => item.id === missionId);
+  if (!mission) throw new Error(`Mission not found for ${missionId}`);
+  const district = catalog.districts.find((item) => item.id === mission.districtId);
+  if (!district) throw new Error(`District not found for ${missionId}`);
+  const zoneSource = zoneSources.find((zone) => zone.id === mission.zoneId);
+  const districtSource = zoneSource?.districts.find((item) => item.name === district.name);
+  if (!districtSource) throw new Error(`District source not found for ${missionId}`);
+  return { mission, district, districtSource };
+}
+
+function replaceWithAlternateScene(
+  catalog: ContentCatalog,
+  currentPhrase: ContentCatalog["phrases"][number],
+  text: string,
+  reading: string,
+): [string, string] {
+  if (currentPhrase.order <= 10) return [text, reading];
+
+  const { mission, district, districtSource } = findPhraseContext(catalog, currentPhrase.missionId);
+  const stageIndex = (mission.number - 1) % 10;
+  const localOrderIndex = (currentPhrase.order - 1) % 10;
+  const wordIndex = (stageIndex + localOrderIndex) % districtSource.words.length;
+  const word: TextReading | undefined = districtSource.words[wordIndex];
+  if (!word) throw new Error(`Source word not found for ${currentPhrase.id}`);
+
+  const textWordIndex = text.lastIndexOf(word.text);
+  const readingWordIndex = reading.lastIndexOf(word.reading);
+  if (textWordIndex < 0 || readingWordIndex < 0) {
+    throw new Error(`Cannot locate source word for alternate scene: ${currentPhrase.id} / ${word.text}`);
+  }
+
+  const alternate = buildAlternateScene(district.name, word, wordIndex);
+  const punctuation = mission.level >= 3 ? "。" : "";
+  return [
+    `${text.slice(0, textWordIndex)}${alternate.text}${punctuation}`,
+    `${reading.slice(0, readingWordIndex)}${alternate.reading}${punctuation}`,
+  ];
+}
+
 export function polishPhrases(catalog: ContentCatalog): ContentCatalog {
   const phrases = catalog.phrases.map((currentPhrase) => {
     let [text, reading] = replacePrefix(currentPhrase.text, currentPhrase.reading);
     [text, reading] = replaceSuffix(text, reading);
+    [text, reading] = replaceWithAlternateScene(catalog, currentPhrase, text, reading);
     return {
       ...currentPhrase,
       text,
