@@ -2,10 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildCatalog } from "./content-builder";
+import { diversifyPhrases } from "./diversify-phrases";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = resolve(root, "src/content/generated/content.json");
-const catalog = buildCatalog();
+const catalog = diversifyPhrases(buildCatalog());
 const output = `${JSON.stringify(catalog)}\n`;
 
 await mkdir(dirname(outputPath), { recursive: true });
