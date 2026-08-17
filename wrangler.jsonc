@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "keycraft-5000-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "d8fdeccc-6d62-4353-823d-e0bcd2eedc9f",
       "migrations_dir": "./migrations"
     }
   ],
