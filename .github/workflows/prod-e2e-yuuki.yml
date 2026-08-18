@@ -1,0 +1,154 @@
+name: Production E2E - Yuuki
+
+on:
+  push:
+    branches:
+      - e2e-yuuki-20260818
+    paths:
+      - .github/workflows/prod-e2e-yuuki.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production-world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Complete Yuuki world through production API and verify D1 state
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const BASE = 'https://keycraft-5000.selfwilled6412.workers.dev';
+          const NAME = 'ゆうき';
+
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          async function api(path, method, body) {
+            let lastError;
+            for (let attempt = 1; attempt <= 5; attempt += 1) {
+              try {
+                const response = await fetch(`${BASE}${path}`, {
+                  method,
+                  headers: { 'Content-Type': 'application/json' },
+                  body: body === undefined ? undefined : JSON.stringify(body),
+                });
+                const text = await response.text();
+                let data;
+                try { data = JSON.parse(text); } catch { data = { raw: text }; }
+                if (!response.ok) {
+                  const error = new Error(`${method} ${path} -> ${response.status}: ${data.error ?? text}`);
+                  if (response.status >= 500 || response.status === 429) throw error;
+                  throw Object.assign(error, { permanent: true });
+                }
+                return data;
+              } catch (error) {
+                lastError = error;
+                if (error?.permanent || attempt === 5) throw error;
+                await sleep(400 * attempt);
+              }
+            }
+            throw lastError;
+          }
+
+          const search = await api('/api/users/search', 'POST', { nickname: NAME });
+          if (!Array.isArray(search.matches)) throw new Error('名前検索レスポンスが不正です');
+          if (search.matches.length !== 1) {
+            console.log('候補数:', search.matches.length);
+            for (const match of search.matches) {
+              console.log(`候補: name=${match.nickname}, keySuffix=...${String(match.keyId).slice(-2)}, phrases=${match.completedPhrases}, missions=${match.completedMissions}`);
+            }
+            throw new Error(`安全停止: 「${NAME}」が完全一致で1人ではありません。書き込みは開始していません。`);
+          }
+
+          const match = search.matches[0];
+          const keyId = match.keyId;
+          const before = await api('/api/session', 'POST', { keyId });
+          if (before.preferences?.nickname !== NAME) throw new Error('検索対象の利用者名が一致しません');
+
+          const catalog = JSON.parse(fs.readFileSync('src/content/generated/content.json', 'utf8'));
+          if (catalog.phrases.length !== 5000 || catalog.missions.length !== 250) {
+            throw new Error(`コンテンツ件数が想定外です: phrases=${catalog.phrases.length}, missions=${catalog.missions.length}`);
+          }
+
+          const phraseById = new Map(catalog.phrases.map((phrase) => [phrase.id, phrase]));
+          const existing = new Set(before.progress.map((row) => row.phraseId));
+          const beforeMissionIds = new Set(before.completedMissionIds);
+          const beforeCount = existing.size;
+          const beforeMissionCount = beforeMissionIds.size;
+
+          console.log(`対象確認: ${NAME} / KEY ID ...${keyId.slice(-2)}`);
+          console.log(`開始前: ${beforeCount}/5000 phrases, ${beforeMissionCount}/250 missions`);
+
+          let inserted = 0;
+          const missions = [...catalog.missions].sort((a, b) => a.number - b.number);
+          for (const mission of missions) {
+            for (const phraseId of mission.phraseIds) {
+              if (existing.has(phraseId)) continue;
+              const phrase = phraseById.get(phraseId);
+              if (!phrase) throw new Error(`phrase not found: ${phraseId}`);
+              await api('/api/progress/phrase', 'POST', {
+                keyId,
+                phraseId,
+                missionId: mission.id,
+                accuracy: 100,
+                keystrokes: phrase.romanization.length,
+                missKeys: {},
+              });
+              existing.add(phraseId);
+              inserted += 1;
+            }
+            if (mission.number % 10 === 0) {
+              console.log(`進行: MISSION ${mission.number}/250 完了処理済み`);
+            }
+          }
+
+          const after = await api('/api/session', 'POST', { keyId });
+          const progressIds = new Set(after.progress.map((row) => row.phraseId));
+          const completedIds = new Set(after.completedMissionIds);
+          if (after.progress.length !== 5000 || progressIds.size !== 5000) {
+            throw new Error(`最終フレーズ数が不一致: rows=${after.progress.length}, unique=${progressIds.size}`);
+          }
+          if (after.completedMissionIds.length !== 250 || completedIds.size !== 250) {
+            throw new Error(`最終MISSION数が不一致: rows=${after.completedMissionIds.length}, unique=${completedIds.size}`);
+          }
+          for (const mission of missions) {
+            if (!completedIds.has(mission.id)) throw new Error(`MISSION未完了: ${mission.id}`);
+          }
+
+          const firstPhrase = catalog.phrases[0];
+          const duplicateResult = await api('/api/progress/phrase', 'POST', {
+            keyId,
+            phraseId: firstPhrase.id,
+            missionId: firstPhrase.missionId,
+            accuracy: 100,
+            keystrokes: firstPhrase.romanization.length,
+            missKeys: {},
+          });
+          if (duplicateResult.duplicate !== true) throw new Error('二重保存防止テストが失敗しました');
+
+          const afterDuplicate = await api('/api/session', 'POST', { keyId });
+          if (afterDuplicate.progress.length !== 5000 || afterDuplicate.completedMissionIds.length !== 250) {
+            throw new Error('重複送信後に件数が変化しました');
+          }
+
+          const summary = [
+            '# KEY CRAFT 5000 本番E2E実証結果',
+            '',
+            `- 対象利用者: ${NAME} (KEY ID末尾 ...${keyId.slice(-2)})`,
+            `- 開始前: ${beforeCount} / 5,000 フレーズ、${beforeMissionCount} / 250 MISSION`,
+            `- 今回追加: ${inserted} フレーズ`,
+            '- 最終: **5,000 / 5,000 フレーズ**',
+            '- 最終: **250 / 250 MISSION**',
+            '- CRAFT MAP入力データ: **250 / 250 CRAFT解放条件成立**',
+            '- 二重保存防止: **PASS**',
+            '- 本番経路: GitHub Actions → workers.dev → Worker API → D1 → session再読込',
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+          console.log(summary);
+          NODE
