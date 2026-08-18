@@ -1,9 +1,9 @@
 name: Production E2E - Yuuki
 
 on:
-  push:
+  pull_request:
     branches:
-      - e2e-yuuki-20260818
+      - main
     paths:
       - .github/workflows/prod-e2e-yuuki.yml
 
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   verify-production-world:
+    if: github.head_ref == 'e2e-yuuki-20260818'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
