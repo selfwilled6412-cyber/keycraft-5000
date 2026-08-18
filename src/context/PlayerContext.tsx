@@ -59,8 +59,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const { keyId } = await createPlayer(name);
-      return await continueWith(keyId);
+      const { keyId } = await createPlayer();
+      const loaded = await continueWith(keyId);
+      const preferences = { ...loaded.preferences, nickname: name };
+      await putPreferences({ keyId, ...preferences });
+      const namedSession = { ...loaded, preferences };
+      setSession(namedSession);
+      return namedSession;
     } finally {
       setLoading(false);
     }
