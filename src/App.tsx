@@ -6,6 +6,7 @@ import { MissionsPage } from "./pages/MissionsPage";
 import { PlayPage } from "./pages/PlayPage";
 import { ProgressPage } from "./pages/ProgressPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { GrowthDemoPage } from "./pages/GrowthDemoPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/missions" element={<MissionsPage />} />
         <Route path="/progress" element={<ProgressPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/demo-growth" element={<GrowthDemoPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
