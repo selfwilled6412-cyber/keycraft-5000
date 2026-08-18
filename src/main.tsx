@@ -6,6 +6,7 @@ import { PlayerProvider } from "./context/PlayerContext";
 import "./styles.css";
 import "./play-viewport.css";
 import "./player-lookup.css";
+import "./growth-demo.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
