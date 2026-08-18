@@ -18,6 +18,11 @@ const createKeyId = async (): Promise<string> => {
   return body.keyId;
 };
 
+const setNickname = async (keyId: string, nickname: string): Promise<void> => {
+  const response = await request("/api/preferences", "PUT", { keyId, assistMode: "beginner", genres: [], nickname });
+  expect(response.status).toBe(200);
+};
+
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM mission_completions").run();
   await env.DB.prepare("DELETE FROM progress").run();
@@ -38,6 +43,30 @@ describe("Worker API + D1", () => {
     const response = await request("/api/session", "POST", { keyId });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ keyId, progress: [], completedMissionIds: [] });
+  });
+
+  it("登録した利用者名を完全一致で検索する", async () => {
+    const keyId = await createKeyId();
+    await setNickname(keyId, "ゆうき");
+    const response = await request("/api/users/search", "POST", { nickname: "ゆうき" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      matches: [{ keyId, nickname: "ゆうき", completedPhrases: 0, completedMissions: 0 }],
+    });
+    const missing = await request("/api/users/search", "POST", { nickname: "ゆう" });
+    expect(await missing.json()).toEqual({ matches: [] });
+  });
+
+  it("同じ利用者名は進捗付きの候補として両方返す", async () => {
+    const firstKey = await createKeyId();
+    const secondKey = await createKeyId();
+    await setNickname(firstKey, "さくら");
+    await setNickname(secondKey, "さくら");
+    await request("/api/progress/phrase", "POST", { keyId: firstKey, missionId: "m001", phraseId: "p001-01", accuracy: 100, keystrokes: 10, missKeys: {} });
+    const result = await (await request("/api/users/search", "POST", { nickname: "さくら" })).json<{ matches: Array<{ keyId: string; completedPhrases: number }> }>();
+    expect(result.matches).toHaveLength(2);
+    expect(result.matches.find((item) => item.keyId === firstKey)?.completedPhrases).toBe(1);
+    expect(result.matches.find((item) => item.keyId === secondKey)?.completedPhrases).toBe(0);
   });
 
   it("1フレーズ保存を冪等に処理する", async () => {
