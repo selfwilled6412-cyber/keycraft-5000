@@ -18,6 +18,17 @@ export async function createPlayer(): Promise<{ keyId: string }> {
   return apiRequest("/api/users", { method: "POST", body: "{}" });
 }
 
+export interface PlayerLookupMatch {
+  keyId: string;
+  nickname: string;
+  completedPhrases: number;
+  completedMissions: number;
+}
+
+export async function searchPlayersByName(nickname: string): Promise<{ matches: PlayerLookupMatch[] }> {
+  return apiRequest("/api/users/search", { method: "POST", body: JSON.stringify({ nickname: nickname.trim() }) });
+}
+
 export async function fetchSession(keyId: string): Promise<PlayerSession> {
   return apiRequest("/api/session", { method: "POST", body: JSON.stringify({ keyId }) });
 }

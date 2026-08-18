@@ -57,15 +57,15 @@ export function SettingsPage() {
         </section>
 
         <section className="settings-section panel profile-settings">
-          <header><span>03</span><div><h2>プレイヤー情報</h2><p>名前は不要です。ニックネームはこの端末以外にも同期されます。</p></div></header>
-          <div><label htmlFor="nickname">ニックネーム <small>任意・24文字まで</small></label><input id="nickname" value={nickname} maxLength={24} onChange={(event) => setNickname(event.target.value)} placeholder="クラフター" /></div>
-          <div className="key-id-setting"><span>KEY ID</span><strong>{session.keyId}</strong><small>このIDだけで進み具合を復元できます。公開場所への投稿は避けてください。</small></div>
+          <header><span>03</span><div><h2>プレイヤー情報</h2><p>共有PCでは、この名前を入力して自分の続きへ戻れます。本名でなくニックネームでもOKです。</p></div></header>
+          <div><label htmlFor="nickname">利用者名（名前・ニックネーム） <small>24文字まで</small></label><input id="nickname" value={nickname} maxLength={24} onChange={(event) => setNickname(event.target.value)} placeholder="例：ゆうき" /></div>
+          <div className="key-id-setting"><span>KEY ID</span><strong>{session.keyId}</strong><small>名前で見つからない場合の予備IDです。公開場所への投稿は避けてください。</small></div>
         </section>
 
         <div className="settings-actions"><button className="button primary large" type="submit" disabled={status === "saving"}>{status === "saving" ? "保存中…" : status === "saved" ? "保存しました ✓" : "設定を保存する"}</button>{status === "error" && <span role="alert">保存できませんでした。通信を確認してください。</span>}</div>
       </form>
 
-      <section className="signout-panel"><div><h2>別のKEY IDを使う</h2><p>この端末からKEY IDの記憶だけを消します。D1に保存した進み具合は消えません。</p></div><button className="button danger" type="button" onClick={signOut}>この端末から離れる</button></section>
+      <section className="signout-panel"><div><h2>別の利用者を使う</h2><p>この端末から今のKEY IDの記憶だけを消します。D1に保存した進み具合は消えません。</p></div><button className="button danger" type="button" onClick={signOut}>この端末から離れる</button></section>
     </div>
   );
 }

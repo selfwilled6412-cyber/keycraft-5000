@@ -1,0 +1,140 @@
+.modal-card .player-name-input {
+  font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.player-lookup-card {
+  width: min(100%, 520px);
+}
+
+.current-player-summary {
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 1px solid #ddd5c7;
+  background: #f4efe5;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.current-player-summary span {
+  color: #768188;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.current-player-summary strong {
+  font-size: 15px;
+}
+
+.current-player-summary small {
+  margin-left: auto;
+  color: #8b9499;
+  font: 500 9px/1.2 "DM Mono", monospace;
+}
+
+.player-match-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.player-match-list > p {
+  margin: 0 0 3px;
+  color: #667582;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.player-match-list > button {
+  width: 100%;
+  border: 1px solid #d4cdbf;
+  background: white;
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-match-list > button:hover:not(:disabled) {
+  border-color: #ed6a45;
+  background: #fff9f3;
+}
+
+.player-match-list > button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.player-match-list > button span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.player-match-list > button strong {
+  font-size: 15px;
+}
+
+.player-match-list > button small {
+  color: #8b9499;
+  font: 500 9px/1.2 "DM Mono", monospace;
+}
+
+.player-match-list > button span:last-child {
+  color: #667582;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.player-match-list > button b {
+  color: #17344d;
+}
+
+.lookup-error {
+  margin-top: 13px;
+  line-height: 1.6;
+}
+
+.lookup-mode-toggle {
+  margin-top: 18px;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
+  color: #c8472c;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lookup-mode-toggle:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.lookup-help {
+  display: block;
+  margin-top: 9px;
+  color: #7b868c;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+@media (max-width: 620px) {
+  .player-match-list > button {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .current-player-summary small {
+    margin-left: 0;
+    width: 100%;
+  }
+}

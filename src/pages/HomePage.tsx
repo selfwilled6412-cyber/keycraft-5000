@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { PlayerLookupDialog } from "../components/PlayerLookupDialog";
 import { RewardIcon } from "../components/RewardIcon";
 import { WorldPreview } from "../components/WorldPreview";
 import { catalog } from "../content/catalog";
@@ -7,44 +8,40 @@ import { usePlayer } from "../context/PlayerContext";
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { session, loading, error, startNew, continueWith, clearError } = usePlayer();
-  const [continuing, setContinuing] = useState(false);
-  const [keyId, setKeyId] = useState("");
+  const { session, loading, startNew, continueWith } = usePlayer();
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [startingNew, setStartingNew] = useState(false);
+  const [newNickname, setNewNickname] = useState("");
   const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [startError, setStartError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (continuing) inputRef.current?.focus();
-  }, [continuing]);
-
-  const openContinue = () => {
-    clearError();
-    setKeyId("");
-    setContinuing(true);
+  const openNewPlayer = () => {
+    setNewNickname("");
+    setStartError(null);
+    setStartingNew(true);
   };
 
-  const handleStart = async () => {
-    setBusy(true);
-    try {
-      await startNew();
-      void navigate("/play");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleContinue = async (event: FormEvent) => {
+  const handleStart = async (event: FormEvent) => {
     event.preventDefault();
+    const nickname = newNickname.trim();
+    if (!nickname) return;
     setBusy(true);
+    setStartError(null);
     try {
-      await continueWith(keyId);
-      setContinuing(false);
+      await startNew(nickname);
+      setStartingNew(false);
       void navigate("/play");
-    } catch {
-      // Error text is provided by the player context.
+    } catch (caught) {
+      setStartError(caught instanceof Error ? caught.message : "新しい世界を作れませんでした");
     } finally {
       setBusy(false);
     }
+  };
+
+  const handlePlayerSelect = async (keyId: string) => {
+    await continueWith(keyId);
+    setLookupOpen(false);
+    void navigate("/play");
   };
 
   return (
@@ -56,7 +53,7 @@ export function HomePage() {
           <p className="tagline">打つほど、<em>世界ができていく。</em></p>
           <p className="hero-description">速さだけを競わない、新しいタイピングゲーム。<br />ひとつ打つたび、あなただけの街が少しずつ育ちます。</p>
           <div className="hero-actions">
-            <button className="button primary large" type="button" onClick={() => void handleStart()} disabled={busy || loading}>
+            <button className="button primary large" type="button" onClick={openNewPlayer} disabled={busy || loading}>
               <span>{session ? "新しい世界を始める" : "すぐ始める"}</span><b aria-hidden="true">→</b>
             </button>
             {session ? (
@@ -64,13 +61,13 @@ export function HomePage() {
                 <button className="button secondary large" type="button" onClick={() => navigate("/play")}>
                   つづきのMISSIONへ
                 </button>
-                <button className="text-button" type="button" onClick={openContinue}>
+                <button className="text-button" type="button" onClick={() => setLookupOpen(true)}>
                   共有PCで使う <span>利用者を切り替える →</span>
                 </button>
               </>
             ) : (
-              <button className="text-button" type="button" onClick={openContinue}>
-                KEY IDをお持ちの方 <span>つづきから →</span>
+              <button className="text-button" type="button" onClick={() => setLookupOpen(true)}>
+                以前遊んだ方 <span>名前でつづきから →</span>
               </button>
             )}
           </div>
@@ -116,28 +113,44 @@ export function HomePage() {
 
       <section className="final-cta section-pad">
         <div><p className="eyebrow">YOUR WORLD IS WAITING</p><h2>最初の一打から、<br />世界を作ろう。</h2></div>
-        <button className="button light large" type="button" onClick={() => void handleStart()} disabled={busy}>無料で始める <b>→</b></button>
       </section>
 
-      {continuing && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !busy && setContinuing(false)}>
-          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="continue-title" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" type="button" onClick={() => setContinuing(false)} disabled={busy} aria-label="閉じる">×</button>
-            <p className="eyebrow">{session ? "PLAYER SWITCH" : "WELCOME BACK"}</p>
-            <h2 id="continue-title">{session ? "利用者を切り替える" : "つづきから"}</h2>
-            {session ? (
-              <p>現在の進み具合は保存されています。次の利用者の6文字KEY IDを入力してください。</p>
-            ) : (
-              <p>6文字のKEY IDを入力してください。別のPCでも同じ世界を開けます。</p>
-            )}
-            <form onSubmit={(event) => void handleContinue(event)}>
-              <label htmlFor="continue-key-id">{session ? "次の利用者のKEY ID" : "KEY ID"}</label>
-              <input ref={inputRef} id="continue-key-id" value={keyId} onChange={(event) => setKeyId(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))} placeholder="K8F3M2" autoComplete="off" />
-              {error && <p className="form-error" role="alert">{error}</p>}
-              <button className="button primary" type="submit" disabled={busy || keyId.length !== 6}>{busy ? "読み込み中…" : session ? "この利用者で続ける →" : "世界をひらく"}</button>
+      {startingNew && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !busy && setStartingNew(false)}>
+          <section className="modal-card new-player-card" role="dialog" aria-modal="true" aria-labelledby="new-player-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" type="button" onClick={() => setStartingNew(false)} disabled={busy} aria-label="閉じる">×</button>
+            <p className="eyebrow">NEW PLAYER</p>
+            <h2 id="new-player-title">新しい世界を始める</h2>
+            <p>次回、名前だけで続きを探せるように利用者名を決めます。本名でなくニックネームでもOKです。</p>
+            {session && <div className="switch-save-note"><strong>✓ 今の世界はそのまま保存されています</strong><span>新しい利用者として別の世界を作ります。</span></div>}
+            <form onSubmit={(event) => void handleStart(event)}>
+              <label htmlFor="new-player-name">利用者名（名前・ニックネーム）</label>
+              <input
+                autoFocus
+                className="player-name-input"
+                id="new-player-name"
+                value={newNickname}
+                maxLength={24}
+                onChange={(event) => setNewNickname(event.target.value)}
+                placeholder="例：ゆうき"
+                autoComplete="off"
+              />
+              {startError && <p className="form-error" role="alert">{startError}</p>}
+              <button className="button primary" type="submit" disabled={busy || !newNickname.trim()}>{busy ? "作成中…" : "この名前で始める →"}</button>
             </form>
           </section>
         </div>
+      )}
+
+      {lookupOpen && (
+        <PlayerLookupDialog
+          title={session ? "利用者を切り替える" : "つづきから"}
+          description={session ? "次の利用者の名前を入力してください。完了した進み具合は自動保存されています。" : "前に使った名前・ニックネームを入力してください。"}
+          currentNickname={session?.preferences.nickname}
+          currentKeyId={session?.keyId}
+          onClose={() => setLookupOpen(false)}
+          onSelect={handlePlayerSelect}
+        />
       )}
     </div>
   );
