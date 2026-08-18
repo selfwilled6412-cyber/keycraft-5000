@@ -59,7 +59,10 @@ export function GrowthDemoPage() {
         <div>
           <p className="eyebrow">PRESENTATION / VERIFIED WORLD GROWTH</p>
           <h1>打つほど、<br /><span>本当に世界ができていく。</span></h1>
-          <p>実際の250 MISSION・250 CRAFT・MISSION座標を使った成長シミュレーターです。利用者のD1進捗は変更しません。</p>
+          <p>
+            実際の250 MISSION・250 CRAFT・25 DISTRICTS・5 ZONESの構造を使った、プレゼン用の成長シミュレーターです。
+            建物位置は成長を見やすくするための模式配置で、利用者のD1進捗は一切変更しません。
+          </p>
         </div>
         <div className="growth-proof-card">
           <span>SIMULATION</span>
@@ -67,6 +70,15 @@ export function GrowthDemoPage() {
           <b>MISSION COMPLETE</b>
         </div>
       </header>
+
+      <section className="growth-evidence growth-evidence-top">
+        <p className="eyebrow">VERIFIED FACTS ONLY</p>
+        <div>
+          <article><strong>5,000</strong><span>PHRASES</span><p>250 MISSION × 20フレーズ。生成データと検品処理で件数を確認済みです。</p></article>
+          <article><strong>250</strong><span>MISSION = 250 CRAFT</span><p>MISSIONとCRAFT報酬は1対1。報酬IDの重複なしを自動テストで確認しています。</p></article>
+          <article><strong>25 / 5</strong><span>DISTRICTS / ZONES</span><p>25地区×10 MISSION、5 ZONE×50 MISSION。段階表示数も自動テスト済みです。</p></article>
+        </div>
+      </section>
 
       <section className="growth-controls" aria-label="成長段階を選ぶ">
         <div className="growth-stage-buttons">
@@ -131,10 +143,13 @@ export function GrowthDemoPage() {
       <section className="growth-evidence">
         <p className="eyebrow">VERIFICATION POINTS</p>
         <div>
-          <article><strong>250</strong><span>MISSION = 250 CRAFT</span><p>MISSIONごとに固有の報酬IDを持ち、完成数と建物表示数が1対1で増えます。</p></article>
+          <article><strong>250</strong><span>MISSION = 250 CRAFT</span><p>MISSIONごとに固有の報酬IDを持ち、完成数とCRAFT表示数が1対1で増えます。</p></article>
           <article><strong>25 × 10</strong><span>DISTRICTS</span><p>各DISTRICTは10 MISSION。10個完成するたび、ひとつの地区が完成します。</p></article>
           <article><strong>5 × 50</strong><span>ZONES</span><p>各ZONEは50 MISSION。50・100・150・200・250で世界が大きく広がります。</p></article>
         </div>
+        <p>
+          ※ このページは成長の仕組みを説明するための模式シミュレーションです。時間・人口・未検証の建物数などは表示していません。
+        </p>
       </section>
     </div>
   );
