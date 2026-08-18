@@ -104,7 +104,7 @@ export function PlayPage() {
       await continueWith(switchKeyId);
       setSwitchingPlayer(false);
       setSwitchKeyId("");
-      navigate("/play", { replace: true });
+      void navigate("/play", { replace: true });
     } catch (error) {
       setSwitchError(error instanceof Error ? error.message : "KEY IDを読み込めませんでした");
     } finally {
