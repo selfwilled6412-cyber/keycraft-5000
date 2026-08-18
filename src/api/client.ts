@@ -14,8 +14,8 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   return data;
 }
 
-export async function createPlayer(nickname?: string): Promise<{ keyId: string }> {
-  return apiRequest("/api/users", { method: "POST", body: JSON.stringify({ nickname: nickname?.trim() || null }) });
+export async function createPlayer(): Promise<{ keyId: string }> {
+  return apiRequest("/api/users", { method: "POST", body: "{}" });
 }
 
 export interface PlayerLookupMatch {
