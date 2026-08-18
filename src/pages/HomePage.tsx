@@ -17,6 +17,12 @@ export function HomePage() {
     if (continuing) inputRef.current?.focus();
   }, [continuing]);
 
+  const openContinue = () => {
+    clearError();
+    setKeyId("");
+    setContinuing(true);
+  };
+
   const handleStart = async () => {
     setBusy(true);
     try {
@@ -32,6 +38,7 @@ export function HomePage() {
     setBusy(true);
     try {
       await continueWith(keyId);
+      setContinuing(false);
       void navigate("/play");
     } catch {
       // Error text is provided by the player context.
@@ -53,11 +60,16 @@ export function HomePage() {
               <span>{session ? "新しい世界を始める" : "すぐ始める"}</span><b aria-hidden="true">→</b>
             </button>
             {session ? (
-              <button className="button secondary large" type="button" onClick={() => navigate("/play")}>
-                つづきのMISSIONへ
-              </button>
+              <>
+                <button className="button secondary large" type="button" onClick={() => navigate("/play")}>
+                  つづきのMISSIONへ
+                </button>
+                <button className="text-button" type="button" onClick={openContinue}>
+                  共有PCで使う <span>利用者を切り替える →</span>
+                </button>
+              </>
             ) : (
-              <button className="text-button" type="button" onClick={() => { clearError(); setContinuing(true); }}>
+              <button className="text-button" type="button" onClick={openContinue}>
                 KEY IDをお持ちの方 <span>つづきから →</span>
               </button>
             )}
@@ -108,17 +120,21 @@ export function HomePage() {
       </section>
 
       {continuing && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setContinuing(false)}>
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !busy && setContinuing(false)}>
           <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="continue-title" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" type="button" onClick={() => setContinuing(false)} aria-label="閉じる">×</button>
-            <p className="eyebrow">WELCOME BACK</p>
-            <h2 id="continue-title">つづきから</h2>
-            <p>6文字のKEY IDを入力してください。別のPCでも同じ世界を開けます。</p>
+            <button className="modal-close" type="button" onClick={() => setContinuing(false)} disabled={busy} aria-label="閉じる">×</button>
+            <p className="eyebrow">{session ? "PLAYER SWITCH" : "WELCOME BACK"}</p>
+            <h2 id="continue-title">{session ? "利用者を切り替える" : "つづきから"}</h2>
+            {session ? (
+              <p>現在の進み具合は保存されています。次の利用者の6文字KEY IDを入力してください。</p>
+            ) : (
+              <p>6文字のKEY IDを入力してください。別のPCでも同じ世界を開けます。</p>
+            )}
             <form onSubmit={(event) => void handleContinue(event)}>
-              <label htmlFor="continue-key-id">KEY ID</label>
+              <label htmlFor="continue-key-id">{session ? "次の利用者のKEY ID" : "KEY ID"}</label>
               <input ref={inputRef} id="continue-key-id" value={keyId} onChange={(event) => setKeyId(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))} placeholder="K8F3M2" autoComplete="off" />
               {error && <p className="form-error" role="alert">{error}</p>}
-              <button className="button primary" type="submit" disabled={busy || keyId.length !== 6}>{busy ? "読み込み中…" : "世界をひらく"}</button>
+              <button className="button primary" type="submit" disabled={busy || keyId.length !== 6}>{busy ? "読み込み中…" : session ? "この利用者で続ける →" : "世界をひらく"}</button>
             </form>
           </section>
         </div>
