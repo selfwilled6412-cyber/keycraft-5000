@@ -8,7 +8,7 @@ interface PlayerContextValue {
   session: PlayerSession | null;
   loading: boolean;
   error: string | null;
-  startNew: () => Promise<PlayerSession>;
+  startNew: (nickname: string) => Promise<PlayerSession>;
   continueWith: (keyId: string) => Promise<PlayerSession>;
   savePhrase: (input: Omit<SavePhraseInput, "keyId">) => Promise<SavePhraseResult>;
   savePreferences: (preferences: PlayerPreferences) => Promise<void>;
@@ -53,11 +53,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
   }, [continueWith]);
 
-  const startNew = useCallback(async () => {
+  const startNew = useCallback(async (nickname: string) => {
+    const name = nickname.trim();
+    if (!name) throw new Error("利用者名を入力してください");
     setLoading(true);
     setError(null);
     try {
-      const { keyId } = await createPlayer();
+      const { keyId } = await createPlayer(name);
       return await continueWith(keyId);
     } finally {
       setLoading(false);
