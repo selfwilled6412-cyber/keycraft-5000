@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FingerGuideView } from "../components/FingerGuideView";
 import { GameGate } from "../components/GameGate";
@@ -13,7 +13,7 @@ import { isMissionAvailable, nextMission } from "../game/progress";
 const initialSnapshot: TypingSnapshot = { completed: false, nextKeys: [], tokenProgress: 0, typed: "", misses: 0, keystrokes: 0, missKeys: {} };
 
 export function PlayPage() {
-  const { session, savePhrase } = usePlayer();
+  const { session, savePhrase, continueWith } = usePlayer();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const requestedMission = params.get("mission");
@@ -33,6 +33,10 @@ export function PlayPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [missionComplete, setMissionComplete] = useState(session?.completedMissionIds.includes(mission.id) ?? false);
+  const [switchingPlayer, setSwitchingPlayer] = useState(false);
+  const [switchKeyId, setSwitchKeyId] = useState("");
+  const [switchBusy, setSwitchBusy] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const initializedScopeRef = useRef("");
 
   const resetPhrase = useCallback((nextPhrase: Phrase | undefined) => {
@@ -85,9 +89,32 @@ export function PlayPage() {
     }
   }, [mission.id, phrase, savePhrase, saving, session]);
 
+  const openPlayerSwitch = () => {
+    setSwitchKeyId("");
+    setSwitchError(null);
+    setSwitchingPlayer(true);
+  };
+
+  const handlePlayerSwitch = async (event: FormEvent) => {
+    event.preventDefault();
+    if (switchKeyId.length !== 6) return;
+    setSwitchBusy(true);
+    setSwitchError(null);
+    try {
+      await continueWith(switchKeyId);
+      setSwitchingPlayer(false);
+      setSwitchKeyId("");
+      void navigate("/play", { replace: true });
+    } catch (error) {
+      setSwitchError(error instanceof Error ? error.message : "KEY IDを読み込めませんでした");
+    } finally {
+      setSwitchBusy(false);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (missionComplete || saving || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
+      if (switchingPlayer || missionComplete || saving || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
       const key = event.key === "Spacebar" ? " " : event.key;
       if (key.length !== 1) return;
       event.preventDefault();
@@ -105,7 +132,7 @@ export function PlayPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [completePhrase, missionComplete, saving]);
+  }, [completePhrase, missionComplete, saving, switchingPlayer]);
 
   if (!session) return <GameGate title="最初のMISSIONを始めよう" />;
   if (!phrase) return <GameGate title="MISSIONデータを読み込めませんでした" />;
@@ -124,7 +151,12 @@ export function PlayPage() {
       <header className="play-topbar">
         <Link to="/missions">← MISSION一覧</Link>
         <div><span>MISSION {String(mission.number).padStart(3, "0")}</span><strong>{mission.title}</strong></div>
-        <div className="assist-badge"><span>ASSIST</span><b>{assistMode.toUpperCase()}</b></div>
+        <div className="play-actions">
+          <div className="assist-badge"><span>ASSIST</span><b>{assistMode.toUpperCase()}</b></div>
+          <button className="player-switch-button" type="button" onClick={openPlayerSwitch} disabled={saving}>
+            {saving ? "保存中…" : "利用者切替"}
+          </button>
+        </div>
       </header>
       <div className="mission-progress-bar"><span style={{ width: `${(missionProgress / 20) * 100}%` }} /><b>{missionProgress} / 20</b></div>
 
@@ -159,6 +191,36 @@ export function PlayPage() {
           <small>あと {Math.max(0, 20 - missionProgress)} フレーズで完成</small>
         </aside>
       </main>
+
+      {switchingPlayer && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !switchBusy && setSwitchingPlayer(false)}>
+          <section className="modal-card player-switch-card" role="dialog" aria-modal="true" aria-labelledby="player-switch-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" type="button" onClick={() => setSwitchingPlayer(false)} disabled={switchBusy} aria-label="閉じる">×</button>
+            <p className="eyebrow">PLAYER SWITCH</p>
+            <h2 id="player-switch-title">利用者を切り替える</h2>
+            <div className="switch-save-note">
+              <strong>✓ 完了したフレーズまで自動保存済み</strong>
+              <span>入力途中の1フレーズだけは、次回その問題の最初から再開します。</span>
+            </div>
+            <p className="current-player-id">現在のKEY ID <strong>{session.keyId}</strong></p>
+            <form onSubmit={(event) => void handlePlayerSwitch(event)}>
+              <label htmlFor="switch-key-id">次の利用者のKEY ID</label>
+              <input
+                autoFocus
+                id="switch-key-id"
+                value={switchKeyId}
+                onChange={(event) => setSwitchKeyId(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+                placeholder="K8F3M2"
+                autoComplete="off"
+              />
+              {switchError && <p className="form-error" role="alert">{switchError}</p>}
+              <button className="button primary" type="submit" disabled={switchBusy || switchKeyId.length !== 6}>
+                {switchBusy ? "切り替え中…" : "この利用者で続ける →"}
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
 
       {missionComplete && (
         <div className="modal-backdrop complete-backdrop">
