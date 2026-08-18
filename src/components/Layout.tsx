@@ -7,6 +7,7 @@ const navItems = [
   { to: "/map", label: "CRAFT MAP", icon: "◇" },
   { to: "/missions", label: "MISSION", icon: "□" },
   { to: "/progress", label: "進み具合", icon: "▥" },
+  { to: "/deliverables", label: "成果物", icon: "◆" },
   { to: "/settings", label: "設定", icon: "○" },
 ];
 
