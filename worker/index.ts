@@ -18,6 +18,13 @@ interface UserRow {
   created_at: string;
 }
 
+interface PlayerSearchRow {
+  key_id: string;
+  nickname: string;
+  completed_phrases: number;
+  completed_missions: number;
+}
+
 interface PreferenceRow {
   assist_mode: "beginner" | "normal" | "challenge";
   genres_json: string;
@@ -101,6 +108,13 @@ function parseKeyId(value: unknown): string {
   return keyId;
 }
 
+function parseNickname(value: unknown): string {
+  const nickname = typeof value === "string" ? value.trim() : "";
+  if (!nickname) throw new HttpError(400, "利用者名を入力してください");
+  if (nickname.length > 24) throw new HttpError(400, "利用者名は24文字以内です");
+  return nickname;
+}
+
 function validateContentIds(phraseId: unknown, missionId: unknown): { phraseId: string; missionId: string } {
   if (typeof phraseId !== "string" || typeof missionId !== "string") throw new HttpError(400, "進捗IDが不正です");
   const phraseMatch = PHRASE_ID_PATTERN.exec(phraseId);
@@ -127,6 +141,32 @@ async function createUser(env: Env): Promise<Response> {
     }
   }
   throw new HttpError(503, "KEY IDを発行できませんでした。もう一度お試しください");
+}
+
+async function searchUsers(request: Request, env: Env): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
+  const nickname = parseNickname(body.nickname);
+  const result = await env.DB.prepare(`
+    SELECT
+      u.key_id,
+      u.nickname,
+      (SELECT COUNT(*) FROM progress p WHERE p.key_id = u.key_id) AS completed_phrases,
+      (SELECT COUNT(*) FROM mission_completions m WHERE m.key_id = u.key_id) AS completed_missions
+    FROM users u
+    WHERE u.nickname = ? COLLATE NOCASE
+    ORDER BY u.last_seen_at DESC
+    LIMIT 10
+  `).bind(nickname).all<PlayerSearchRow>();
+  const matches = (result.results ?? [])
+    .filter((row): row is PlayerSearchRow => typeof row.key_id === "string" && typeof row.nickname === "string")
+    .map((row) => ({
+      keyId: row.key_id,
+      nickname: row.nickname,
+      completedPhrases: Number(row.completed_phrases) || 0,
+      completedMissions: Number(row.completed_missions) || 0,
+    }));
+  return json({ matches });
 }
 
 async function getSession(request: Request, env: Env): Promise<Response> {
@@ -262,6 +302,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     return json({ ok: true, service: "keycraft-5000", contentVersion: 1 });
   }
   if (pathname === "/api/users" && request.method === "POST") return createUser(env);
+  if (pathname === "/api/users/search" && request.method === "POST") return searchUsers(request, env);
   if (pathname === "/api/session" && request.method === "POST") return getSession(request, env);
   if (pathname === "/api/preferences" && request.method === "PUT") return updatePreferences(request, env);
   if (pathname === "/api/progress/phrase" && request.method === "POST") return savePhrase(request, env);
