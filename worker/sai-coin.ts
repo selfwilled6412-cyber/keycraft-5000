@@ -36,6 +36,10 @@ export async function saiCoinEventId(keyId: string, missionId: string): Promise<
   return `kc_${digest.slice(0, 40)}`;
 }
 
+export function saiCoinRequestBody(userName: string, missionId: string, eventId: string) {
+  return { userName, missionId, eventId };
+}
+
 function integrationConfig(env: Env): { apiUrl: string; apiKey: string; missionId: string } | null {
   const integrationEnv = env as SaiCoinEnv;
   const apiUrl = String(integrationEnv.SAI_COIN_API_URL ?? '').trim().replace(/\/$/, '');
@@ -120,11 +124,7 @@ export async function deliverPendingSaiCoin(env: Env, keyId: string, fetcher: ty
           authorization: `Bearer ${config.apiKey}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({
-          userName: nickname,
-          missionId: config.missionId,
-          eventId: row.event_id,
-        }),
+        body: JSON.stringify(saiCoinRequestBody(nickname, config.missionId, row.event_id)),
         signal: controller.signal,
       });
       const data = await responseJson(response);
