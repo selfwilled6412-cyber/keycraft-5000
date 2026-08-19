@@ -4,10 +4,11 @@ import { fileURLToPath } from "node:url";
 import { buildCatalog } from "./content-builder";
 import { diversifyPhrases } from "./diversify-phrases";
 import { polishPhrases } from "./polish-phrases";
+import { spreadSimilarPhrases } from "./spread-similar-phrases";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = resolve(root, "src/content/generated/content.json");
-const catalog = polishPhrases(diversifyPhrases(buildCatalog()));
+const catalog = spreadSimilarPhrases(polishPhrases(diversifyPhrases(buildCatalog())));
 const output = `${JSON.stringify(catalog)}\n`;
 
 await mkdir(dirname(outputPath), { recursive: true });
