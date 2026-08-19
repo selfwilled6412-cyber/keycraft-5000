@@ -14,9 +14,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "npm run generate && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "smoke": "tsx scripts/runtime-smoke.ts",
-    "check": "npm run generate && npm run validate:content && npm run lint && npm run typecheck && npm run test && npm run build && npm run smoke",
+    "check": "npm run validate:content && npm run lint && npm run typecheck && npm run test && npm run build && npm run smoke",
     "deploy:dry": "npm run build && wrangler deploy --dry-run",
     "deploy": "npm run build && wrangler deploy"
   },
