@@ -87,6 +87,19 @@ npm run deploy:dry
 
 進捗の主キーは `(key_id, phrase_id)` です。同じ完了通知が再送されても二重計上されません。入力JSONにはサイズ上限を設け、全SQLはD1のバインド変数を使用します。
 
+## SAI COIN連携
+
+SAI COIN連携が設定されている場合、MISSIONを20問クリアした後にSAI COINの日次ミッション達成を通知します。
+
+- KEY CRAFT側からコイン枚数は指定しません。報酬はSAI COIN側のミッション設定だけを使います。
+- KEY IDはSAI COINへ送信しません。外部イベントIDはKEY IDとMISSION IDをSHA-256化した匿名IDです。
+- API URL・APIキー・SAI COIN側ミッションIDはCloudflare Worker Secretで保持します。
+- SAI COINが一時的に利用できない場合もKEY CRAFTの進捗保存は成功します。
+- 未送信イベントはD1の `sai_coin_outbox` に保持し、次回の進捗保存時に再送します。
+- SAI COIN側でその日の同一ミッションが達成済みなら `daily_already` として終端し、重複付与や無限再送を防ぎます。
+
+連携に必要なWorker Secretは `SAI_COIN_API_URL`、`SAI_COIN_API_KEY`、`SAI_COIN_MISSION_ID` の3つです。Secret未設定時は連携処理だけが無効になり、KEY CRAFT本体は従来どおり動作します。
+
 ## 主なディレクトリ
 
 ```text
@@ -102,4 +115,3 @@ test/               入力エンジン・コンテンツ・Worker APIテスト
 ## プライバシー
 
 登録不要です。KEY IDは秘密情報として扱ってください。公開プロフィール、広告SDK、外部画像・外部フォント、行動追跡用スクリプトは使用していません。
-
