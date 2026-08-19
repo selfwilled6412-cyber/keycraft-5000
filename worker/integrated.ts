@@ -20,7 +20,7 @@ async function syncSaiCoin(request: JsonReadableRequest, response: Response, env
   let output: ProgressOutput;
   try {
     input = await request.json() as ProgressInput;
-    output = await response.clone().json() as ProgressOutput;
+    output = await response.json() as ProgressOutput;
   } catch {
     return;
   }
@@ -49,8 +49,9 @@ export default {
     const shouldSync = url.pathname === '/api/progress/phrase' && request.method === 'POST';
     const integrationRequest = shouldSync ? request.clone() : null;
     const response = await app.fetch(request as Parameters<typeof app.fetch>[0], env, context);
-    if (integrationRequest) {
-      context.waitUntil(syncSaiCoin(integrationRequest, response, env));
+    const integrationResponse = integrationRequest ? response.clone() : null;
+    if (integrationRequest && integrationResponse) {
+      context.waitUntil(syncSaiCoin(integrationRequest, integrationResponse, env));
     }
     return response;
   },
