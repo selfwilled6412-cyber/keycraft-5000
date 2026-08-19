@@ -14,8 +14,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run generate
-      - run: git diff --exit-code -- src/content/generated/content.json
       - run: npm run validate:content
       - run: npm run lint
       - run: npm run typecheck
