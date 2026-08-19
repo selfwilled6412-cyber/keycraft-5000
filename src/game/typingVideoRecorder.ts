@@ -134,7 +134,7 @@ export function createTypingVideoRecorder(): TypingVideoRecorder {
     ctx.fillStyle = "#94a3b8";
     ctx.fillText("MISSION PROGRESS", 958, 330);
 
-    const stats = [
+    const stats: Array<[string, string]> = [
       ["正確さ", `${frame.accuracy}%`],
       ["入力", String(frame.keystrokes)],
       ["ミス", String(frame.misses)],
