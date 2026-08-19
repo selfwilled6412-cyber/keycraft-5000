@@ -10,7 +10,11 @@ interface ProgressOutput {
   completedCount?: unknown;
 }
 
-async function syncSaiCoin(request: Request, response: Response, env: Env): Promise<void> {
+interface JsonReadableRequest {
+  json(): Promise<unknown>;
+}
+
+async function syncSaiCoin(request: JsonReadableRequest, response: Response, env: Env): Promise<void> {
   if (!response.ok) return;
   let input: ProgressInput;
   let output: ProgressOutput;
