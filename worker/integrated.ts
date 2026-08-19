@@ -44,7 +44,7 @@ export default {
     const url = new URL(request.url);
     const shouldSync = url.pathname === '/api/progress/phrase' && request.method === 'POST';
     const integrationRequest = shouldSync ? request.clone() : null;
-    const response = await app.fetch(request, env, context);
+    const response = await app.fetch(request as Parameters<typeof app.fetch>[0], env, context);
     if (integrationRequest) {
       context.waitUntil(syncSaiCoin(integrationRequest, response, env));
     }
