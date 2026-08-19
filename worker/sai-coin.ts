@@ -1,4 +1,9 @@
+interface SaiCoinService {
+  fetch(request: Request): Promise<Response>;
+}
+
 type SaiCoinEnv = Env & {
+  SAI_COIN?: SaiCoinService;
   SAI_COIN_API_URL?: string;
   SAI_COIN_API_KEY?: string;
   SAI_COIN_MISSION_ID?: string;
@@ -14,6 +19,13 @@ interface SaiCoinResponse {
   duplicate?: boolean;
   error?: string;
   message?: string;
+}
+
+interface IntegrationConfig {
+  apiUrl: string;
+  apiKey: string;
+  missionId: string;
+  service?: SaiCoinService;
 }
 
 export interface SaiCoinDeliverySummary {
@@ -40,22 +52,54 @@ export function saiCoinRequestBody(userName: string, missionId: string, eventId:
   return { userName, missionId, eventId };
 }
 
-function integrationConfig(env: Env): { apiUrl: string; apiKey: string; missionId: string } | null {
+function integrationConfig(env: Env): IntegrationConfig | null {
   const integrationEnv = env as SaiCoinEnv;
   const apiUrl = String(integrationEnv.SAI_COIN_API_URL ?? '').trim().replace(/\/$/, '');
   const apiKey = String(integrationEnv.SAI_COIN_API_KEY ?? '').trim();
   const missionId = String(integrationEnv.SAI_COIN_MISSION_ID ?? '').trim();
-  if (!apiUrl || !apiKey || !missionId) return null;
-  return { apiUrl, apiKey, missionId };
+  const service = integrationEnv.SAI_COIN;
+  if (!apiKey || !missionId || (!service && !apiUrl)) return null;
+  return { apiUrl, apiKey, missionId, ...(service ? { service } : {}) };
 }
 
-async function responseJson(response: Response): Promise<SaiCoinResponse> {
+async function responsePayload(response: Response): Promise<{ data: SaiCoinResponse; raw: string }> {
+  let raw = '';
   try {
-    const value = await response.json() as unknown;
-    return typeof value === 'object' && value !== null ? value as SaiCoinResponse : {};
+    raw = await response.text();
   } catch {
-    return {};
+    return { data: {}, raw: '' };
   }
+  try {
+    const value = JSON.parse(raw) as unknown;
+    return {
+      data: typeof value === 'object' && value !== null ? value as SaiCoinResponse : {},
+      raw,
+    };
+  } catch {
+    return { data: {}, raw };
+  }
+}
+
+async function sendToSaiCoin(
+  config: IntegrationConfig,
+  body: ReturnType<typeof saiCoinRequestBody>,
+  signal: AbortSignal,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const init: RequestInit = {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${config.apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal,
+  };
+
+  if (config.service) {
+    return config.service.fetch(new Request('https://sai-coin.internal/api/integrations/complete', init));
+  }
+  return fetcher(`${config.apiUrl}/api/integrations/complete`, init);
 }
 
 async function pendingCount(env: Env, keyId: string): Promise<number> {
@@ -118,16 +162,13 @@ export async function deliverPendingSaiCoin(env: Env, keyId: string, fetcher: ty
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
     try {
-      const response = await fetcher(`${config.apiUrl}/api/integrations/complete`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${config.apiKey}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(saiCoinRequestBody(nickname, config.missionId, row.event_id)),
-        signal: controller.signal,
-      });
-      const data = await responseJson(response);
+      const response = await sendToSaiCoin(
+        config,
+        saiCoinRequestBody(nickname, config.missionId, row.event_id),
+        controller.signal,
+        fetcher,
+      );
+      const { data, raw } = await responsePayload(response);
       if (response.ok && data.ok !== false) {
         await markTerminal(env, row.event_id, 'sent');
         sent += 1;
@@ -138,7 +179,8 @@ export async function deliverPendingSaiCoin(env: Env, keyId: string, fetcher: ty
         dailyAlready += 1;
         continue;
       }
-      lastError = data.message || data.error || `SAI COIN HTTP ${response.status}`;
+      const compactRaw = raw.replace(/\s+/g, ' ').trim().slice(0, 120);
+      lastError = data.message || data.error || `SAI COIN HTTP ${response.status}${compactRaw ? `: ${compactRaw}` : ''}`;
       await markFailure(env, row.event_id, lastError);
       break;
     } catch (error) {
