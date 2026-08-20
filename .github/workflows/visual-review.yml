@@ -14,7 +14,7 @@ permissions:
 jobs:
   screenshots:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,8 +23,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Install browser
-        run: npx -y playwright@1.55.0 install --with-deps chromium
+      - name: Install browser tooling
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
       - name: Start local visual review server
         run: |
           npm run dev:ui -- --host 127.0.0.1 --port 4173 > /tmp/keycraft-vite.log 2>&1 &
@@ -37,9 +39,38 @@ jobs:
       - name: Capture Premium UI v2
         run: |
           mkdir -p visual-review
-          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 "http://127.0.0.1:4173/?visualReview=1" visual-review/01-command-screen.png
-          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/heroes?visualReview=1" visual-review/02-heroes.png
-          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/deliverables?visualReview=1" visual-review/03-deliverables.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 "http://127.0.0.1:4173/?visualReview=1" visual-review/01-command-screen.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/heroes?visualReview=1" visual-review/02-heroes.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/deliverables?visualReview=1" visual-review/03-deliverables.png
+      - name: Generate and capture real PNG deliverables
+        run: |
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright';
+          import { stat } from 'node:fs/promises';
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1536, height: 960 }, acceptDownloads: true });
+          await page.goto('http://127.0.0.1:4173/deliverables?visualReview=1', { waitUntil: 'networkidle' });
+          await page.waitForTimeout(5000);
+          const buttons = page.getByRole('button', { name: 'PNGを作る' });
+          if (await buttons.count() !== 4) throw new Error('Expected four PNG product buttons');
+          const outputs = [
+            'visual-review/04-settlement-poster.png',
+            'visual-review/05-mission-clear.png',
+            'visual-review/06-district-board.png',
+            'visual-review/07-hero-collection.png',
+          ];
+          for (let index = 0; index < outputs.length; index += 1) {
+            const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+            await buttons.nth(index).click();
+            const download = await downloadPromise;
+            await download.saveAs(outputs[index]);
+            const info = await stat(outputs[index]);
+            if (info.size < 20000) throw new Error(`PNG output too small: ${outputs[index]} (${info.size} bytes)`);
+            await page.waitForTimeout(1200);
+          }
+          await browser.close();
+          EOF
       - name: Upload visual review
         uses: actions/upload-artifact@v4
         with:
