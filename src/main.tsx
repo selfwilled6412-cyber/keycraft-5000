@@ -14,6 +14,7 @@ import "./premium-play.css";
 import "./premium-play-finish.css";
 import "./premium-secondary.css";
 import "./premium-progress.css";
+import "./auto-deliverables.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
