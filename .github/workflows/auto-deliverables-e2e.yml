@@ -61,6 +61,7 @@ jobs:
         run: |
           node --input-type=module <<'EOF'
           import { chromium } from 'playwright';
+          import { writeFile } from 'node:fs/promises';
 
           const base = 'http://127.0.0.1:8789';
           const browser = await chromium.launch({ headless: true });
@@ -98,18 +99,22 @@ jobs:
             if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) {
               throw new Error(`Generated file is not PNG for ${item.eventKey}`);
             }
+            const safeKey = String(item.eventKey).replace(/[^a-zA-Z0-9_-]+/g, '_');
+            await writeFile(`/tmp/keycraft-auto-${safeKey}.png`, bytes);
           }
 
           await page.screenshot({ path: '/tmp/keycraft-auto-complete.png', fullPage: true });
           await browser.close();
           console.log(`AUTO DELIVERABLES E2E PASS: typed phrase 20 -> mission complete -> ${items.length} PNGs -> D1 registry -> R2 -> PNG retrieval.`);
           EOF
-      - name: Upload E2E completion screenshot
+      - name: Upload E2E visual proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: auto-deliverables-e2e-proof
-          path: /tmp/keycraft-auto-complete.png
+          path: |
+            /tmp/keycraft-auto-complete.png
+            /tmp/keycraft-auto-*.png
           if-no-files-found: ignore
           retention-days: 7
       - name: Show Worker log on failure
