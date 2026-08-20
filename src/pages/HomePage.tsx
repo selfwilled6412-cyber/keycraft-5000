@@ -8,7 +8,7 @@ import { usePlayer } from "../context/PlayerContext";
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { session, loading, startNew, continueWith } = usePlayer();
+  const { session, startNew, continueWith } = usePlayer();
   const [lookupOpen, setLookupOpen] = useState(false);
   const [startingNew, setStartingNew] = useState(false);
   const [newNickname, setNewNickname] = useState("");
