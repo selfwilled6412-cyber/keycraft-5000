@@ -8,6 +8,7 @@ $branch = "agent/premium-game-ui-v2"
 $stagingWorker = "keycraft-5000-staging"
 $prodDb = "keycraft-5000-db"
 $stagingDb = "keycraft-5000-staging-db"
+$stagingBucket = "keycraft-5000-staging-deliverables"
 $workersSubdomain = "selfwilled6412"
 $cloneDir = Join-Path $env:TEMP ("keycraft-premium-clone-" + [Guid]::NewGuid().ToString("N"))
 $seedFile = Join-Path $env:TEMP ("keycraft-minako-seed-" + [Guid]::NewGuid().ToString("N") + ".sql")
@@ -36,15 +37,15 @@ function QueryRows([string]$database, [string]$sql) {
 }
 
 try {
-  Write-Host "[1/10] Fresh-clone Premium UI v2 branch" -ForegroundColor Green
+  Write-Host "[1/12] Fresh-clone Premium UI v2 branch" -ForegroundColor Green
   Run "git" @("clone", "--depth", "1", "--single-branch", "--branch", $branch, $repoUrl, $cloneDir)
 
   Push-Location $cloneDir
   try {
-    Write-Host "[2/10] Install dependencies" -ForegroundColor Green
+    Write-Host "[2/12] Install dependencies" -ForegroundColor Green
     Run "npm.cmd" @("ci")
 
-    Write-Host "[3/10] Re-create staging D1 only (production DB is never modified)" -ForegroundColor Green
+    Write-Host "[3/12] Re-create staging D1 only (production DB is never modified)" -ForegroundColor Green
     $listRaw = (& npx.cmd wrangler d1 list --json | Out-String)
     if ($LASTEXITCODE -ne 0) { throw "Could not list D1 databases" }
     $dbs = $listRaw | ConvertFrom-Json
@@ -61,10 +62,20 @@ try {
     $dbId = if ($db.uuid) { $db.uuid } elseif ($db.id) { $db.id } else { $null }
     if (-not $dbId) { throw "Could not determine staging D1 database id" }
 
-    Write-Host "[4/10] Apply schema to staging D1" -ForegroundColor Green
+    Write-Host "[4/12] Apply schema and deliverables registry to staging D1" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", "migrations/0001_initial_schema.sql", "-y")
+    Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", "migrations/0002_deliverables.sql", "-y")
 
-    Write-Host "[5/10] Read minako only from production D1 (read-only queries)" -ForegroundColor Green
+    Write-Host "[5/12] Ensure private staging R2 deliverables bucket exists" -ForegroundColor Green
+    $r2List = (& npx.cmd wrangler r2 bucket list | Out-String)
+    if ($LASTEXITCODE -ne 0) { throw "Could not list R2 buckets" }
+    if ($r2List -notmatch [regex]::Escape($stagingBucket)) {
+      Run "npx.cmd" @("wrangler", "r2", "bucket", "create", $stagingBucket, "--location", "apac")
+    } else {
+      Write-Host "R2 bucket already exists: $stagingBucket" -ForegroundColor DarkGreen
+    }
+
+    Write-Host "[6/12] Read minako only from production D1 (read-only queries)" -ForegroundColor Green
     $users = QueryRows $prodDb "SELECT key_id,nickname,created_at,last_seen_at FROM users WHERE lower(trim(nickname))='minako';"
     if ($users.Count -eq 0) { throw "No user named minako was found in production D1" }
 
@@ -91,10 +102,10 @@ try {
     }
     Set-Content -LiteralPath $seedFile -Value $sqlLines -Encoding UTF8
 
-    Write-Host "[6/10] Seed minako data into staging D1" -ForegroundColor Green
+    Write-Host "[7/12] Seed minako data into staging D1" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", $seedFile, "-y")
 
-    Write-Host "[7/10] Build Premium UI v2" -ForegroundColor Green
+    Write-Host "[8/12] Build Premium UI v2 + automatic deliverables" -ForegroundColor Green
     Run "npm.cmd" @("run", "build")
 
     $configPath = Join-Path $cloneDir "wrangler.staging.generated.jsonc"
@@ -120,19 +131,28 @@ try {
       "migrations_dir": "./migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "DELIVERABLES",
+      "bucket_name": "$stagingBucket"
+    }
+  ],
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }
 "@
     Set-Content -LiteralPath $configPath -Value $config -Encoding UTF8
 
-    Write-Host "[8/10] Deploy Premium UI v2 to staging Worker only" -ForegroundColor Green
+    Write-Host "[9/12] Deploy Premium UI v2 to staging Worker only" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "deploy", "--config", $configPath)
 
-    Write-Host "[9/10] Verify minako data in staging D1" -ForegroundColor Green
+    Write-Host "[10/12] Verify minako data in staging D1" -ForegroundColor Green
     $verifySql = "SELECT u.key_id,u.nickname,COUNT(DISTINCT p.phrase_id) AS phrase_count,COUNT(DISTINCT mc.mission_id) AS mission_count,MAX(u.last_seen_at) AS last_seen_at FROM users u LEFT JOIN progress p ON p.key_id=u.key_id LEFT JOIN mission_completions mc ON mc.key_id=u.key_id WHERE lower(trim(u.nickname))='minako' GROUP BY u.key_id,u.nickname;"
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--command", $verifySql)
 
-    Write-Host "[10/10] HTTP check" -ForegroundColor Green
+    Write-Host "[11/12] Verify deliverables registry" -ForegroundColor Green
+    Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--command", "SELECT name FROM sqlite_master WHERE type='table' AND name='deliverables';")
+
+    Write-Host "[12/12] HTTP check" -ForegroundColor Green
     $url = "https://$stagingWorker.$workersSubdomain.workers.dev"
     try {
       $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
@@ -142,9 +162,10 @@ try {
     }
 
     Write-Host ""
-    Write-Host "PREMIUM UI V2 STAGING READY" -ForegroundColor Green
+    Write-Host "PREMIUM UI V2 + AUTO DELIVERABLES STAGING READY" -ForegroundColor Green
     Write-Host $url -ForegroundColor Yellow
-    Write-Host "Only minako data was copied from production. Production Worker and D1 were not modified." -ForegroundColor Green
+    Write-Host "Automatic PNG flow: MISSION CLEAR + CURRENT SETTLEMENT + DISTRICT COMPLETE + HERO UNLOCK -> private R2." -ForegroundColor Green
+    Write-Host "Only minako data was copied from production. Production Worker, D1 and R2 were not modified." -ForegroundColor Green
   }
   finally { Pop-Location }
 }
