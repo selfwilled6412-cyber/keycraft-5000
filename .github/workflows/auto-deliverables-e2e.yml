@@ -1,0 +1,124 @@
+name: Auto Deliverables E2E
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "worker/**"
+      - "migrations/**"
+      - "wrangler.jsonc"
+      - ".github/workflows/auto-deliverables-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mission-complete-to-r2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Prepare local D1 at 19/20 phrases
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute keycraft-5000-db --local --file migrations/0001_initial_schema.sql -y
+          npx wrangler d1 execute keycraft-5000-db --local --file migrations/0002_deliverables.sql -y
+          node --input-type=module <<'EOF' > /tmp/keycraft-autodeliverable-seed.sql
+          const values = [];
+          for (let i = 1; i <= 19; i += 1) {
+            values.push(`('ABC234','p001-${String(i).padStart(2,'0')}','m001',100,20,'{}','2026-08-20 17:${String(i).padStart(2,'0')}:00')`);
+          }
+          console.log("INSERT INTO users (key_id,nickname) VALUES ('ABC234','E2E PLAYER');");
+          console.log("INSERT INTO preferences (key_id,assist_mode,genres_json) VALUES ('ABC234','beginner','[]');");
+          console.log(`INSERT INTO progress (key_id,phrase_id,mission_id,accuracy,keystrokes,miss_keys_json,completed_at) VALUES ${values.join(',')};`);
+          EOF
+          npx wrangler d1 execute keycraft-5000-db --local --file /tmp/keycraft-autodeliverable-seed.sql -y
+      - name: Start local Worker with D1 and R2
+        shell: bash
+        run: |
+          npx wrangler dev --local --port 8789 --log-level warn > /tmp/keycraft-auto-wrangler.log 2>&1 &
+          echo $! > /tmp/keycraft-auto-wrangler.pid
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8789/api/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keycraft-auto-wrangler.log
+          exit 1
+      - name: Complete 20th phrase in real browser and verify automatic PNGs
+        shell: bash
+        run: |
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright';
+
+          const base = 'http://127.0.0.1:8789';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1536, height: 960 } });
+          await page.addInitScript(() => localStorage.setItem('keycraft:last-key-id', 'ABC234'));
+          await page.goto(`${base}/play?mission=m001`, { waitUntil: 'networkidle' });
+          await page.waitForTimeout(2500);
+
+          const phraseNumber = await page.locator('.typing-meta b').textContent();
+          if (!phraseNumber?.includes('20')) throw new Error(`Expected PHRASE 20, got: ${phraseNumber}`);
+          const roman = (await page.locator('.roman-target').textContent())?.trim();
+          if (!roman) throw new Error('Roman target was not found for phrase 20.');
+          await page.keyboard.type(roman, { delay: 4 });
+
+          const completed = page.getByText('が完成しました！', { exact: false });
+          await completed.waitFor({ state: 'visible', timeout: 30000 });
+          await page.getByText(/成果物PNGを\d+件、自動保存しました。/).waitFor({ state: 'visible', timeout: 60000 });
+
+          const listResponse = await page.request.post(`${base}/api/deliverables/list`, { data: { keyId: 'ABC234' } });
+          if (!listResponse.ok()) throw new Error(`Deliverables list failed: ${listResponse.status()}`);
+          const body = await listResponse.json();
+          const items = body.deliverables;
+          if (!Array.isArray(items)) throw new Error('Deliverables list is not an array.');
+          const keys = new Set(items.map((item) => item.eventKey));
+          for (const required of ['current-settlement', 'mission:m001', 'hero:rhea']) {
+            if (!keys.has(required)) throw new Error(`Missing automatic deliverable event: ${required}`);
+          }
+          if (items.length < 3) throw new Error(`Expected at least 3 automatic deliverables, got ${items.length}`);
+
+          for (const item of items) {
+            const response = await page.request.get(`${base}/api/deliverables/file/${encodeURIComponent(item.id)}?keyId=ABC234`);
+            if (!response.ok()) throw new Error(`PNG fetch failed for ${item.eventKey}: ${response.status()}`);
+            const bytes = await response.body();
+            if (bytes.length < 20_000) throw new Error(`Generated PNG too small for ${item.eventKey}: ${bytes.length}`);
+            if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) {
+              throw new Error(`Generated file is not PNG for ${item.eventKey}`);
+            }
+          }
+
+          await page.screenshot({ path: '/tmp/keycraft-auto-complete.png', fullPage: true });
+          await browser.close();
+          console.log(`AUTO DELIVERABLES E2E PASS: typed phrase 20 -> mission complete -> ${items.length} PNGs -> D1 registry -> R2 -> PNG retrieval.`);
+          EOF
+      - name: Upload E2E completion screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-deliverables-e2e-proof
+          path: /tmp/keycraft-auto-complete.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Show Worker log on failure
+        if: failure()
+        run: cat /tmp/keycraft-auto-wrangler.log || true
+      - name: Stop local Worker
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/keycraft-auto-wrangler.pid ]; then
+            kill "$(cat /tmp/keycraft-auto-wrangler.pid)" >/dev/null 2>&1 || true
+          fi
