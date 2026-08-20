@@ -4,11 +4,12 @@ import { usePlayer } from "../context/PlayerContext";
 import { Logo } from "./Logo";
 
 const navItems = [
-  { to: "/map", label: "CRAFT MAP", icon: "◇" },
-  { to: "/missions", label: "MISSION", icon: "□" },
-  { to: "/progress", label: "進み具合", icon: "▥" },
+  { to: "/map", label: "拠点", icon: "♜" },
+  { to: "/heroes", label: "英雄", icon: "♟" },
+  { to: "/missions", label: "MISSION", icon: "✦" },
+  { to: "/progress", label: "実績", icon: "★" },
   { to: "/deliverables", label: "成果物", icon: "◆" },
-  { to: "/settings", label: "設定", icon: "○" },
+  { to: "/settings", label: "設定", icon: "⚙" },
 ];
 
 export function Layout() {
@@ -25,8 +26,8 @@ export function Layout() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="site-header">
+    <div className="app-shell premium-shell">
+      <header className="site-header premium-site-header">
         <Logo />
         <nav aria-label="メインメニュー">
           {navItems.map((item) => (
@@ -36,15 +37,15 @@ export function Layout() {
           ))}
         </nav>
         <div className="key-chip" aria-live="polite">
-          <span>KEY ID</span>
-          <strong>{loading ? "------" : session?.keyId ?? "未発行"}</strong>
+          <span>KEY</span>
+          <strong>{loading ? "------" : session?.keyId ?? "GUEST"}</strong>
         </div>
       </header>
       <main><Outlet /></main>
-      <footer className="site-footer">
+      <footer className="site-footer premium-site-footer">
         <Logo />
         <p>打つほど、世界ができていく。</p>
-        <small>無料・登録不要・外部画像なし</small>
+        <small>KEY CRAFT 5000 / Premium World Build</small>
       </footer>
     </div>
   );
