@@ -12,6 +12,7 @@ import "./premium-density.css";
 import "./premium-polish.css";
 import "./premium-play.css";
 import "./premium-play-finish.css";
+import "./premium-secondary.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
