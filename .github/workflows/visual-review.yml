@@ -40,9 +40,11 @@ jobs:
         run: |
           mkdir -p visual-review
           npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 "http://127.0.0.1:4173/?visualReview=1" visual-review/01-command-screen.png
-          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/heroes?visualReview=1" visual-review/02-heroes.png
-          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/deliverables?visualReview=1" visual-review/03-deliverables.png
-          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 "http://127.0.0.1:4173/play?visualReview=1" visual-review/04-play-screen.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/map?visualReview=1" visual-review/02-craft-map.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/heroes?visualReview=1" visual-review/03-heroes.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/missions?visualReview=1" visual-review/04-missions.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/deliverables?visualReview=1" visual-review/05-deliverables.png
+          npx playwright screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 "http://127.0.0.1:4173/play?visualReview=1" visual-review/06-play-screen.png
       - name: Generate and capture real PNG deliverables
         run: |
           node --input-type=module <<'EOF'
@@ -56,10 +58,10 @@ jobs:
           const buttons = page.getByRole('button', { name: 'PNGを作る' });
           if (await buttons.count() !== 4) throw new Error('Expected four PNG product buttons');
           const outputs = [
-            'visual-review/05-settlement-poster.png',
-            'visual-review/06-mission-clear.png',
-            'visual-review/07-district-board.png',
-            'visual-review/08-hero-collection.png',
+            'visual-review/07-settlement-poster.png',
+            'visual-review/08-mission-clear.png',
+            'visual-review/09-district-board.png',
+            'visual-review/10-hero-collection.png',
           ];
           for (let index = 0; index < outputs.length; index += 1) {
             const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
