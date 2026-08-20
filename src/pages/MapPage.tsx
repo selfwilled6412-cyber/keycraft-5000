@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { GameGate } from "../components/GameGate";
+import { HardcoreSettlement } from "../components/HardcoreSettlement";
 import { ProgressRing } from "../components/ProgressRing";
 import { RewardIcon } from "../components/RewardIcon";
 import { catalog } from "../content/catalog";
@@ -21,17 +22,32 @@ export function MapPage() {
   const zoneMissions = catalog.missions.filter((mission) => mission.zoneId === selectedZone.id);
   const completedInZone = zoneMissions.filter((mission) => session.completedMissionIds.includes(mission.id)).length;
   const totalProgress = (session.progress.length / catalog.phrases.length) * 100;
+  const currentMission = catalog.missions.find((mission) => !session.completedMissionIds.includes(mission.id)) ?? catalog.missions[catalog.missions.length - 1]!;
+  const currentMissionProgress = missionPhraseCount(currentMission.id, session.progress);
+  const currentDistrict = catalog.districts.find((district) => district.id === currentMission.districtId);
 
   return (
     <div className="page map-page section-pad">
       <header className="page-heading map-heading">
         <div>
-          <p className="eyebrow">DATA-DRIVEN WORLD</p>
+          <p className="eyebrow">LIVE SETTLEMENT / DATA-DRIVEN WORLD</p>
           <h1>CRAFT MAP</h1>
-          <p>完成したMISSIONから、あなたの世界を何度でも組み立てます。</p>
+          <p>タイピングで完成したCRAFTが、拠点と街並みにそのまま反映されます。</p>
         </div>
         <div className="map-overall"><ProgressRing value={totalProgress} label="WORLD" size={104} /><div><span>完成した建物</span><strong>{session.completedMissionIds.length}<small> / 250</small></strong></div></div>
       </header>
+
+      <section className="hc-map-hero">
+        <HardcoreSettlement completedCrafts={session.completedMissionIds.length} currentCraft={Math.ceil(currentMissionProgress / 2)} compact />
+        <div className="hc-map-hero-copy">
+          <span>LIVE DISTRICT</span>
+          <h2>{currentDistrict?.name ?? "FROST DISTRICT"}</h2>
+          <p>MISSION {String(currentMission.number).padStart(3, "0")} / {currentMission.title}</p>
+          <div><i style={{ width: `${(currentMissionProgress / 20) * 100}%` }} /><b>{currentMissionProgress}/20</b></div>
+          <Link to={`/play?mission=${currentMission.id}`}>作業を続ける ▶</Link>
+        </div>
+        <div className="hc-map-hero-stats"><div><span>CRAFT</span><b>{session.completedMissionIds.length}</b></div><div><span>PHRASES</span><b>{session.progress.length}</b></div><div><span>ZONE</span><b>{selectedZone.number}</b></div></div>
+      </section>
 
       <div className="zone-tabs" role="tablist" aria-label="ZONEを選ぶ">
         {catalog.zones.map((zone) => (
