@@ -9,6 +9,7 @@ import "./player-lookup.css";
 import "./growth-demo.css";
 import "./premium.css";
 import "./premium-density.css";
+import "./premium-polish.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
