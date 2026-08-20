@@ -18,6 +18,12 @@
       "migrations_dir": "./migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "DELIVERABLES",
+      "bucket_name": "keycraft-5000-deliverables"
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
