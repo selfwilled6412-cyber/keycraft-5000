@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createPlayer, fetchSession, postPhraseProgress, putPreferences, type SavePhraseInput, type SavePhraseResult } from "../api/client";
+import { createPlayer, fetchSession, postPhraseProgress, putPreferences, searchPlayersByName, type SavePhraseInput, type SavePhraseResult } from "../api/client";
 import type { PlayerPreferences, PlayerSession } from "../content/types";
 
 const LAST_KEY_ID = "keycraft:last-key-id";
@@ -42,15 +42,34 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const keyId = window.localStorage.getItem(LAST_KEY_ID);
-    if (!keyId) {
-      setLoading(false);
-      return;
-    }
-    void continueWith(keyId).catch(() => {
-      window.localStorage.removeItem(LAST_KEY_ID);
-      setLoading(false);
-    });
+    const bootstrap = async () => {
+      const isStagingReview = window.location.hostname.startsWith("keycraft-5000-staging.");
+      if (isStagingReview) {
+        try {
+          const { matches } = await searchPlayersByName("minako");
+          const minako = matches[0];
+          if (minako) {
+            await continueWith(minako.keyId);
+            return;
+          }
+        } catch {
+          // If staging seed is temporarily unavailable, fall back to the normal session flow below.
+        }
+      }
+
+      const keyId = window.localStorage.getItem(LAST_KEY_ID);
+      if (!keyId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        await continueWith(keyId);
+      } catch {
+        window.localStorage.removeItem(LAST_KEY_ID);
+        setLoading(false);
+      }
+    };
+    void bootstrap();
   }, [continueWith]);
 
   const startNew = useCallback(async (nickname: string) => {
