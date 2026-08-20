@@ -1,21 +1,9 @@
 import { useMemo, useRef } from "react";
+import { townCoreWebp } from "../assets/townCore";
 import { GameGate } from "../components/GameGate";
 import { catalog } from "../content/catalog";
-import type { Mission, RewardKind } from "../content/types";
+import type { Mission } from "../content/types";
 import { usePlayer } from "../context/PlayerContext";
-
-const kindShape: Record<RewardKind, string> = {
-  gate: "M-18 16V-8L0-22 18-8v24h-8V-4H-10v20Z",
-  sign: "M-3 24h6V0h16v-18h-38V0h16Z",
-  plaza: "M0-22 22-10 0 2-22-10Zm-18 17L0 7 18-5v16L0 22-18 11Z",
-  shop: "M-20-4h40v27h-40Zm-4 0 6-18h36l6 18-8 6-8-6-8 6-8-6-8 6Z",
-  garden: "M-24 18h48v7h-48Zm22 0V0h4v18Zm-10-12a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm20 0a11 11 0 1 1 0-22 11 11 0 0 1 0 22Z",
-  workshop: "M-22 22V0L0-16 22 0v22Zm0-22v-16h10v9L0-16 22 0",
-  station: "M-22 22V-10h44v32ZM-26-10 0-24l26 14Z",
-  tower: "M-12 23-5-20h10l7 43Zm-8 0h40v5h-40Zm5-14h30v4h-30Zm5-15h20v4h-20Z",
-  festival: "M-18-24h4v50h-4Zm32 0h4v50h-4ZM-14-20c10 7 18-5 28 2V6c-10-7-18 5-28-2Z",
-  landmark: "M0-26 26-8 18 24h-36l-8-32Zm0 8 14 12-5 20h-18l-5-20Z",
-};
 
 function safeName(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]+/g, "_");
@@ -46,68 +34,104 @@ function exportPng(svg: SVGSVGElement, filename: string) {
     canvas.height = 900;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.fillStyle = "#07111f";
+    ctx.fillStyle = "#06101b";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((png) => png && downloadBlob(png, filename), "image/png");
+    canvas.toBlob((png) => png && downloadBlob(png, filename), "image/png", .96);
     URL.revokeObjectURL(url);
   };
   image.src = url;
 }
 
-function TownArtwork({ missions, completedIds, title, subtitle }: { missions: Mission[]; completedIds: string[]; title: string; subtitle: string }) {
+function SceneBase() {
   return (
     <>
-      <rect width="1600" height="900" fill="#07111f" />
       <defs>
-        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#162a4d" /><stop offset="1" stopColor="#07111f" /></linearGradient>
-        <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#102a32" /><stop offset="1" stopColor="#0b1825" /></linearGradient>
+        <linearGradient id="scene-dark" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#04101b" stopOpacity=".1" />
+          <stop offset=".6" stopColor="#04101b" stopOpacity=".08" />
+          <stop offset="1" stopColor="#02060b" stopOpacity=".92" />
+        </linearGradient>
+        <linearGradient id="gold-line" x1="0" y1="0" x2="1" y2="0"><stop stopColor="#ffc754"/><stop offset="1" stopColor="#7c5414"/></linearGradient>
+        <filter id="soft-shadow"><feDropShadow dx="0" dy="8" stdDeviation="10" floodColor="#000" floodOpacity=".75"/></filter>
       </defs>
-      <rect width="1600" height="610" fill="url(#sky)" />
-      <circle cx="1320" cy="140" r="72" fill="#f8d96a" opacity=".92" />
-      <path d="M0 570 C300 500 470 620 760 540 S1180 510 1600 590 V900 H0Z" fill="url(#ground)" />
-      <path d="M0 690 C360 620 540 760 850 670 S1260 630 1600 710" fill="none" stroke="#e8c56a" strokeWidth="22" opacity=".45" />
-      <text x="80" y="110" fill="#ffffff" fontSize="54" fontFamily="sans-serif" fontWeight="700">{title}</text>
-      <text x="82" y="158" fill="#a9bfd5" fontSize="25" fontFamily="sans-serif">{subtitle}</text>
-      {missions.map((mission, i) => {
-        const complete = completedIds.includes(mission.id);
-        const x = 120 + (i % 5) * 300;
-        const row = Math.floor(i / 5);
-        const y = 520 + row * 150 + ((i % 2) * 20);
-        return (
-          <g key={mission.id} transform={`translate(${x} ${y}) scale(2.4)`} opacity={complete ? 1 : .14}>
-            <path d={kindShape[mission.reward.kind]} fill={complete ? "#70d6c2" : "#64748b"} stroke="#d8fff5" strokeWidth="1.2" />
-            <text x="0" y="43" textAnchor="middle" fill="#ffffff" fontSize="8" fontFamily="sans-serif">{mission.number}</text>
-          </g>
-        );
-      })}
-      <text x="80" y="840" fill="#7fe7d2" fontSize="30" fontFamily="sans-serif" fontWeight="700">KEY CRAFT 5000</text>
-      <text x="1510" y="840" fill="#a9bfd5" fontSize="24" textAnchor="end" fontFamily="sans-serif">打つほど、世界ができていく。</text>
+      <rect width="1600" height="900" fill="#07111f" />
+      <image href={townCoreWebp} x="0" y="0" width="1600" height="900" preserveAspectRatio="xMidYMid slice" />
+      <rect width="1600" height="900" fill="url(#scene-dark)" />
+      <rect x="34" y="34" width="1532" height="832" rx="26" fill="none" stroke="#b8862d" strokeWidth="3" opacity=".72" />
+      <rect x="45" y="45" width="1510" height="810" rx="20" fill="none" stroke="#35485b" strokeWidth="1" opacity=".9" />
     </>
   );
 }
 
-function MapArtwork({ missions, completedIds, title, subtitle }: { missions: Mission[]; completedIds: string[]; title: string; subtitle: string }) {
+function MissionBadges({ missions, completedIds }: { missions: Mission[]; completedIds: string[] }) {
   return (
-    <>
-      <rect width="1600" height="900" fill="#07111f" />
-      <text x="80" y="100" fill="#ffffff" fontSize="50" fontFamily="sans-serif" fontWeight="700">{title}</text>
-      <text x="82" y="145" fill="#a9bfd5" fontSize="24" fontFamily="sans-serif">{subtitle}</text>
-      <rect x="70" y="190" width="1460" height="620" rx="34" fill="#0c1c2d" stroke="#27445c" strokeWidth="4" />
-      <path d="M160 260C420 190 520 410 820 300S1210 180 1440 310M170 680c250-250 430 20 690-120s390-40 570 120M430 220c-100 190 60 320-70 520M1150 220c80 180-50 320 30 520" fill="none" stroke="#31516a" strokeWidth="16" strokeLinecap="round" />
-      {missions.map((mission) => {
+    <g transform="translate(80 706)">
+      {missions.map((mission, index) => {
         const complete = completedIds.includes(mission.id);
-        const x = 120 + (mission.coordinates.x / 100) * 1360;
-        const y = 240 + (mission.coordinates.y / 100) * 500;
+        const x = index * 142;
         return (
-          <g key={mission.id} transform={`translate(${x} ${y})`}>
-            <circle r="46" fill={complete ? "#173f43" : "#111827"} stroke={complete ? "#74e3cd" : "#334155"} strokeWidth="5" />
-            <g transform="scale(1.15)"><path d={kindShape[mission.reward.kind]} fill={complete ? "#8cebd8" : "#475569"} opacity={complete ? 1 : .35} /></g>
-            <text y="72" textAnchor="middle" fill={complete ? "#ffffff" : "#64748b"} fontSize="22" fontFamily="sans-serif">{mission.number}</text>
+          <g key={mission.id} transform={`translate(${x} 0)`} opacity={complete ? 1 : .34}>
+            <rect width="118" height="92" rx="14" fill={complete ? "#10283a" : "#09121d"} stroke={complete ? "#6bcdf2" : "#465463"} strokeWidth="2" />
+            <circle cx="59" cy="34" r="19" fill={complete ? "#f4b942" : "#263646"} />
+            <text x="59" y="41" textAnchor="middle" fill="#07111f" fontSize="17" fontWeight="900" fontFamily="sans-serif">{String(mission.number).padStart(2,"0")}</text>
+            <text x="59" y="70" textAnchor="middle" fill={complete ? "#ffffff" : "#8192a1"} fontSize="12" fontWeight="700" fontFamily="sans-serif">{complete ? "COMPLETE" : "LOCKED"}</text>
           </g>
         );
       })}
-      <text x="80" y="860" fill="#7fe7d2" fontSize="28" fontFamily="sans-serif" fontWeight="700">KEY CRAFT 5000 / CRAFT MAP</text>
+    </g>
+  );
+}
+
+function CityPosterArtwork({ missions, completedIds, title, subtitle, player }: { missions: Mission[]; completedIds: string[]; title: string; subtitle: string; player: string }) {
+  const completed = missions.filter((mission) => completedIds.includes(mission.id)).length;
+  return (
+    <>
+      <SceneBase />
+      <g filter="url(#soft-shadow)">
+        <rect x="72" y="72" width="640" height="206" rx="18" fill="#07101a" fillOpacity=".88" stroke="#9a7428" strokeWidth="2" />
+        <text x="104" y="116" fill="#60c9f4" fontSize="20" fontWeight="800" fontFamily="sans-serif" letterSpacing="3">KEY CRAFT 5000 / DISTRICT ART</text>
+        <text x="104" y="176" fill="#ffffff" fontSize="48" fontWeight="900" fontFamily="sans-serif">{title}</text>
+        <text x="104" y="218" fill="#a9bfd5" fontSize="23" fontFamily="sans-serif">{subtitle}</text>
+        <text x="104" y="254" fill="#f0bd53" fontSize="18" fontWeight="700" fontFamily="sans-serif">BUILDER: {player}</text>
+      </g>
+      <g transform="translate(1170 88)" filter="url(#soft-shadow)">
+        <rect width="338" height="154" rx="18" fill="#07101a" fillOpacity=".9" stroke="#9a7428" strokeWidth="2" />
+        <text x="28" y="42" fill="#f0bd53" fontSize="18" fontWeight="900" fontFamily="sans-serif">CRAFT PROGRESS</text>
+        <text x="28" y="105" fill="#ffffff" fontSize="58" fontWeight="900" fontFamily="sans-serif">{completed}<tspan fill="#9fb1c2" fontSize="28"> / 10</tspan></text>
+      </g>
+      <MissionBadges missions={missions} completedIds={completedIds} />
+      <text x="80" y="850" fill="#75e3d0" fontSize="24" fontFamily="sans-serif" fontWeight="800">打つほど、世界ができていく。</text>
+    </>
+  );
+}
+
+function DistrictMapArtwork({ missions, completedIds, title, subtitle }: { missions: Mission[]; completedIds: string[]; title: string; subtitle: string }) {
+  return (
+    <>
+      <SceneBase />
+      <rect x="64" y="66" width="1472" height="122" rx="18" fill="#06101a" fillOpacity=".87" stroke="#7b8ea1" strokeWidth="1.5" />
+      <text x="94" y="118" fill="#ffffff" fontSize="42" fontWeight="900" fontFamily="sans-serif">{title}</text>
+      <text x="96" y="156" fill="#9fb6ca" fontSize="20" fontFamily="sans-serif">{subtitle} / LIVE CRAFT MAP</text>
+      <path d="M140 620C370 520 490 608 690 502S1030 455 1440 585" fill="none" stroke="#08111b" strokeWidth="34" opacity=".75" strokeLinecap="round" />
+      <path d="M140 620C370 520 490 608 690 502S1030 455 1440 585" fill="none" stroke="#d7b257" strokeWidth="8" opacity=".75" strokeLinecap="round" />
+      {missions.map((mission, index) => {
+        const complete = completedIds.includes(mission.id);
+        const x = 155 + index * 142;
+        const y = 616 - Math.sin(index * .9) * 68;
+        return (
+          <g key={mission.id} transform={`translate(${x} ${y})`} filter="url(#soft-shadow)">
+            <circle r="43" fill={complete ? "#102b3e" : "#09131d"} stroke={complete ? "#76dbff" : "#566372"} strokeWidth="4" />
+            <circle r="29" fill={complete ? "#f0b849" : "#1a2734"} />
+            <text y="8" textAnchor="middle" fill={complete ? "#06101a" : "#8d9baa"} fontSize="22" fontWeight="900" fontFamily="sans-serif">{String(mission.number).padStart(2,"0")}</text>
+          </g>
+        );
+      })}
+      <g transform="translate(1110 720)">
+        <rect width="386" height="102" rx="16" fill="#07101a" fillOpacity=".88" stroke="#8f6a27" strokeWidth="2" />
+        <text x="24" y="38" fill="#efb846" fontSize="16" fontWeight="900" fontFamily="sans-serif">CURRENT DISTRICT</text>
+        <text x="24" y="74" fill="#ffffff" fontSize="24" fontWeight="800" fontFamily="sans-serif">MISSION進行が街に蓄積</text>
+      </g>
     </>
   );
 }
@@ -128,37 +152,38 @@ export function DeliverablesPage() {
   const base = `KEYCRAFT_${safeName(session.preferences.nickname ?? session.keyId)}_DISTRICT_${String(district.number).padStart(2, "0")}`;
   const title = `${district.name} / DISTRICT ${String(district.number).padStart(2, "0")}`;
   const subtitle = `${zone.name} · ${completedHere}/10 CRAFTS COMPLETE`;
+  const player = session.preferences.nickname ?? session.keyId;
 
   return (
     <div className="page section-pad">
       <header className="page-heading">
-        <div><p className="eyebrow">DELIVERABLES</p><h1>納品成果物</h1><p>いま作っている街を、そのまま商品として書き出します。</p></div>
+        <div><p className="eyebrow">DELIVERABLES</p><h1>納品成果物</h1><p>線画ではなく、現在の街をゲームアートとしてPNG/SVGに書き出します。</p></div>
       </header>
 
       <section style={{ display: "grid", gap: "28px" }}>
         <article className="panel" style={{ padding: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "end", flexWrap: "wrap" }}>
-            <div><p className="eyebrow">PRODUCT 01</p><h2>現在地の町MAP</h2><p>{title} — {completedHere}/10 CRAFTS</p></div>
+            <div><p className="eyebrow">PRODUCT 01</p><h2>現在地のゲームMAP</h2><p>{title} — {completedHere}/10 CRAFTS</p></div>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button type="button" className="primary-button" onClick={() => mapRef.current && exportPng(mapRef.current, `${base}_MAP.png`)}>PNGで保存</button>
               <button type="button" className="secondary-button" onClick={() => mapRef.current && exportSvg(mapRef.current, `${base}_MAP.svg`)}>SVGで保存</button>
             </div>
           </div>
-          <div style={{ marginTop: "18px", overflow: "hidden", borderRadius: "22px", border: "1px solid rgba(255,255,255,.12)" }}>
-            <svg ref={mapRef} viewBox="0 0 1600 900" style={{ display: "block", width: "100%", height: "auto" }} xmlns="http://www.w3.org/2000/svg"><MapArtwork missions={missions} completedIds={session.completedMissionIds} title={title} subtitle={subtitle} /></svg>
+          <div style={{ marginTop: "18px", overflow: "hidden", borderRadius: "22px", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.4)" }}>
+            <svg ref={mapRef} viewBox="0 0 1600 900" style={{ display: "block", width: "100%", height: "auto" }} xmlns="http://www.w3.org/2000/svg"><DistrictMapArtwork missions={missions} completedIds={session.completedMissionIds} title={title} subtitle={subtitle} /></svg>
           </div>
         </article>
 
         <article className="panel" style={{ padding: "24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "end", flexWrap: "wrap" }}>
-            <div><p className="eyebrow">PRODUCT 02</p><h2>現在地の街イラスト</h2><p>完成したCRAFTだけが街並みに現れます。</p></div>
+            <div><p className="eyebrow">PRODUCT 02</p><h2>街の完成ポスター</h2><p>背景・建物・住民が見えるゲーム画面を、そのまま納品用ポスターにします。</p></div>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button type="button" className="primary-button" onClick={() => townRef.current && exportPng(townRef.current, `${base}_CITY.png`)}>PNGで保存</button>
               <button type="button" className="secondary-button" onClick={() => townRef.current && exportSvg(townRef.current, `${base}_CITY.svg`)}>SVGで保存</button>
             </div>
           </div>
-          <div style={{ marginTop: "18px", overflow: "hidden", borderRadius: "22px", border: "1px solid rgba(255,255,255,.12)" }}>
-            <svg ref={townRef} viewBox="0 0 1600 900" style={{ display: "block", width: "100%", height: "auto" }} xmlns="http://www.w3.org/2000/svg"><TownArtwork missions={missions} completedIds={session.completedMissionIds} title={title} subtitle={subtitle} /></svg>
+          <div style={{ marginTop: "18px", overflow: "hidden", borderRadius: "22px", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.4)" }}>
+            <svg ref={townRef} viewBox="0 0 1600 900" style={{ display: "block", width: "100%", height: "auto" }} xmlns="http://www.w3.org/2000/svg"><CityPosterArtwork missions={missions} completedIds={session.completedMissionIds} title={title} subtitle={subtitle} player={player} /></svg>
           </div>
         </article>
       </section>
