@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPlayer, fetchSession, postPhraseProgress, putPreferences, searchPlayersByName, type SavePhraseInput, type SavePhraseResult } from "../api/client";
+import { catalog } from "../content/catalog";
 import type { PlayerPreferences, PlayerSession } from "../content/types";
 
 const LAST_KEY_ID = "keycraft:last-key-id";
@@ -17,6 +18,25 @@ interface PlayerContextValue {
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
+
+function buildVisualReviewSession(): PlayerSession {
+  const completedPhrases = catalog.phrases.slice(0, 350);
+  const completedMissions = catalog.missions.slice(0, 17);
+  return {
+    keyId: "V2REVIEW",
+    preferences: { assistMode: "beginner", genres: [], nickname: "minako" },
+    progress: completedPhrases.map((phrase, index) => ({
+      phraseId: phrase.id,
+      missionId: phrase.missionId,
+      accuracy: 98.4,
+      keystrokes: Math.max(12, phrase.romanization.length),
+      completedAt: new Date(Date.UTC(2026, 7, 20, 8, index % 60)).toISOString(),
+      missKeys: {},
+    })),
+    completedMissionIds: completedMissions.map((mission) => mission.id),
+    createdAt: "2026-08-20T00:00:00.000Z",
+  };
+}
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<PlayerSession | null>(null);
@@ -43,6 +63,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const bootstrap = async () => {
+      const query = new URLSearchParams(window.location.search);
+      const isLocalVisualReview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && query.get("visualReview") === "1";
+      if (isLocalVisualReview) {
+        setSession(buildVisualReviewSession());
+        setLoading(false);
+        return;
+      }
+
       const isStagingReview = window.location.hostname.startsWith("keycraft-5000-staging.");
       if (isStagingReview) {
         try {
