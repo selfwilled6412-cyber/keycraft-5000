@@ -164,7 +164,8 @@ async function makeSettlement(input: AutoArtifactInput, completedAfter: string[]
     ctx.restore();
   });
 
-  [[690, 585], [835, 570], [1010, 585], [1215, 600], [1390, 625], [925, 735], [1140, 750]].forEach(([x, y], index) => drawLamp(ctx, x, y, index % 2 ? .9 : 1.08));
+  const lampPositions = [[690, 585], [835, 570], [1010, 585], [1215, 600], [1390, 625], [925, 735], [1140, 750]] as const;
+  lampPositions.forEach(([x, y], index) => drawLamp(ctx, x, y, index % 2 ? .9 : 1.08));
 
   const unlockedHeroes = premiumHeroes.filter((hero) => completedAfter.length >= hero.unlockMission).slice(-5);
   const heroImages = await Promise.all(unlockedHeroes.map((hero) => loadImage(hero.image)));
