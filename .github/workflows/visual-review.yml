@@ -1,0 +1,49 @@
+name: Visual Review
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "public/**"
+      - ".github/workflows/visual-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install browser
+        run: npx -y playwright@1.55.0 install --with-deps chromium
+      - name: Start local visual review server
+        run: |
+          npm run dev:ui -- --host 127.0.0.1 --port 4173 > /tmp/keycraft-vite.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keycraft-vite.log
+          exit 1
+      - name: Capture Premium UI v2
+        run: |
+          mkdir -p visual-review
+          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 "http://127.0.0.1:4173/?visualReview=1" visual-review/01-command-screen.png
+          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/heroes?visualReview=1" visual-review/02-heroes.png
+          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1536,960" --wait-for-timeout 6000 --full-page "http://127.0.0.1:4173/deliverables?visualReview=1" visual-review/03-deliverables.png
+      - name: Upload visual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-ui-v2-visual-review
+          path: visual-review/*.png
+          if-no-files-found: error
+          retention-days: 7
