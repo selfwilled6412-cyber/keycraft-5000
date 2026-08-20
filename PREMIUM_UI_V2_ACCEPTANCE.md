@@ -50,3 +50,16 @@ The output must look good when opened as an image without the app around it.
 - Browser review must pass at desktop size used in the facility.
 - Deliverable PNG exports must be visually reviewed.
 - Production `main` is untouched until explicit approval.
+
+## Implementation checkpoint — 2026-08-20
+
+- [x] Premium strategy-game command screen implemented with real CC0 game art rather than procedural line-art.
+- [x] Isometric settlement uses distinct building assets, labels, locked/unlocked progression, snow, roads, central beacon/fire and crew markers.
+- [x] Hero/crew collection screen implemented with detailed character art, rarity, level, stars and locked/unlocked progression.
+- [x] Four dedicated 1600×900 PNG product generators implemented for settlement poster, mission clear card, district development board and hero/crew collection board.
+- [x] Staging bootstrap automatically prefers the seeded `minako` player instead of stale localStorage.
+- [x] Staging deployment script is isolated from production and copies only `minako` via read-only production queries.
+- [x] Content validation / lint / TypeScript / tests / production build / Wrangler dry-run / smoke test passed at the implementation checkpoint.
+- [ ] Browser visual review on staging.
+- [ ] PNG export visual review on staging.
+- [ ] Explicit human approval before any production merge.
