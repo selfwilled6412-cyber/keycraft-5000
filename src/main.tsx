@@ -10,6 +10,7 @@ import "./growth-demo.css";
 import "./premium.css";
 import "./premium-density.css";
 import "./premium-polish.css";
+import "./premium-play.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
