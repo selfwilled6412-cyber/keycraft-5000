@@ -76,6 +76,15 @@ PRをproductionへ入れる前に最低限すべてPASSさせる。
   - 一覧取得
   - R2からPNG再取得
   - 元ファイルとのbyte一致
+- Real-browser automatic deliverables E2E:
+  - D1を19/20フレーズ状態に準備
+  - 実Chromiumで20フレーズ目をタイピング
+  - MISSION COMPLETE確定
+  - ブラウザCanvasで自動PNG生成
+  - CURRENT SETTLEMENT / MISSION CLEAR / HERO UNLOCKを自動保存
+  - D1台帳とR2から3 PNGを再取得
+  - PNG signatureと十分なbyte sizeを検証
+  - 2026-08-20: PASS (`typed phrase 20 -> mission complete -> 3 PNGs -> D1 registry -> R2 -> PNG retrieval`)
 - Visual Review: 主要ゲーム画面と実PNG出力を実ブラウザで撮影
 - staging実ブラウザ確認
 - staging R2で自動保存 / 自動復元確認
