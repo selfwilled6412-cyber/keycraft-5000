@@ -60,7 +60,7 @@ export function HomePage() {
 
       <section className="premium-top-hud">
         <button type="button" className="premium-player-badge" onClick={() => setLookupOpen(true)}>
-          <span className="premium-avatar-ring"><img src={premiumHeroes[0].image} alt="" crossOrigin="anonymous" /></span>
+          <span className="premium-avatar-ring"><img src={premiumHeroes[0]!.image} alt="" crossOrigin="anonymous" /></span>
           <span><b>{session?.preferences.nickname ?? "NEW COMMANDER"}</b><small>LV.{String(level).padStart(2, "0")} · {completedPhrases.toLocaleString()} / 5,000</small></span>
         </button>
         <div className="premium-resource"><span>🔥</span><b>{(completedPhrases * 9 + 320).toLocaleString()}</b><small>+{level * 8}/分</small></div>
