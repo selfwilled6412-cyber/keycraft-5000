@@ -56,7 +56,7 @@ try {
     if ($dbs | Where-Object { $_.name -eq $stagingDb }) {
       Run "npx.cmd" @("wrangler", "d1", "delete", $stagingDb, "-y")
     }
-    Run "npx.cmd" @("wrangler", "d1", "create", $stagingDb, "--location", "apac")
+    Run "npx.cmd" @("wrangler", "d1", "create", $stagingDb, "--location", "apac", "--binding", "DB", "--update-config", "false")
 
     $listRaw = (& npx.cmd wrangler d1 list --json | Out-String)
     if ($LASTEXITCODE -ne 0) { throw "Could not re-list D1 databases" }
