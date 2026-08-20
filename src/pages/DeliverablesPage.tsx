@@ -77,7 +77,7 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
   const images = await Promise.all(premiumBuildings.slice(0, 9).map((item) => loadImage(item.image)));
   ctx.fillStyle = "#dcecff"; ctx.beginPath(); ctx.ellipse(980, 690, 830, 290, -.08, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#b4d3ea"; ctx.beginPath(); ctx.ellipse(970, 700, 680, 205, -.08, 0, Math.PI * 2); ctx.fill();
-  const coords = [[920,360,360],[560,300,230],[1210,310,230],[650,540,230],[1110,540,230],[390,515,210],[1320,520,210],[800,690,195],[1170,690,195]];
+  const coords = [[920,360,360],[560,300,230],[1210,310,230],[650,540,230],[1110,540,230],[390,515,210],[1320,520,210],[800,690,195],[1170,690,195]] as const;
   images.forEach((image, index) => {
     if (!image) return;
     const [x,y,size] = coords[index]!;
@@ -90,7 +90,7 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
   ctx.fillStyle = "#f4b942"; ctx.font = "900 118px sans-serif"; ctx.fillText(String(input.completedMissions).padStart(3,"0"), 74, 350);
   ctx.fillStyle = "#ffffff"; ctx.font = "800 28px sans-serif"; ctx.fillText("MISSIONS COMPLETE", 80, 395);
   ctx.fillStyle = "rgba(255,255,255,.10)"; roundedRect(ctx, 72, 455, 500, 230, 28); ctx.fill();
-  const stats = [["CRAFT", `${input.completedMissions}/250`],["入力", `${input.completedPhrases}/5000`],["都市LEVEL", `${Math.max(1, Math.floor(input.completedPhrases / 100) + 1)}`],["稼働", "良好"]];
+  const stats = [["CRAFT", `${input.completedMissions}/250`],["入力", `${input.completedPhrases}/5000`],["都市LEVEL", `${Math.max(1, Math.floor(input.completedPhrases / 100) + 1)}`],["稼働", "良好"]] as const;
   stats.forEach(([label,value], index) => { const x = 105 + (index % 2) * 235; const y = 515 + Math.floor(index / 2) * 95; ctx.fillStyle="#86a1b5"; ctx.font="600 20px sans-serif"; ctx.fillText(label, x, y); ctx.fillStyle="#fff"; ctx.font="900 32px sans-serif"; ctx.fillText(value, x, y+37); });
   ctx.fillStyle="#ffb642"; ctx.font="800 22px sans-serif"; ctx.fillText("打つほど、世界ができていく。", 74, 830);
   downloadCanvas(canvas, input.filename);
