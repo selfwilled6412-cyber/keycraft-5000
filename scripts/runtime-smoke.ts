@@ -17,10 +17,11 @@ const smokeAssets: Fetcher = {
 const env = {
   ASSETS: smokeAssets,
   DB: {} as D1Database,
-} satisfies Env;
+  DELIVERABLES: {} as R2Bucket,
+} satisfies Env & { DELIVERABLES: R2Bucket };
 const response = await worker.fetch(new Request("https://keycraft.test/api/health"), env, {} as ExecutionContext);
 if (!response.ok) throw new Error(`Health endpoint returned ${response.status}.`);
-const body = await response.json<{ ok: boolean; service: string }>();
-if (!body.ok || body.service !== "keycraft-5000") throw new Error("Health endpoint payload is invalid.");
+const body = await response.json<{ ok: boolean; service: string; deliverables?: boolean }>();
+if (!body.ok || body.service !== "keycraft-5000" || body.deliverables !== true) throw new Error("Health endpoint payload is invalid.");
 
-console.log("Runtime smoke passed: dist/index.html + Worker /api/health.");
+console.log("Runtime smoke passed: dist/index.html + Worker /api/health + R2 binding contract.");
