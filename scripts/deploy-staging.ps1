@@ -75,8 +75,6 @@ try {
     $completions = QueryRows $prodDb "SELECT key_id,mission_id,reward_id,completed_at FROM mission_completions WHERE key_id IN ($keyList) ORDER BY completed_at;"
 
     $sqlLines = New-Object System.Collections.Generic.List[string]
-    $sqlLines.Add("PRAGMA foreign_keys = ON;")
-    $sqlLines.Add("BEGIN TRANSACTION;")
     foreach ($row in $users) {
       $sqlLines.Add("INSERT INTO users (key_id,nickname,created_at,last_seen_at) VALUES ($(SqlQuote $row.key_id),$(SqlQuote $row.nickname),$(SqlQuote $row.created_at),$(SqlQuote $row.last_seen_at));")
     }
@@ -91,7 +89,6 @@ try {
     foreach ($row in $completions) {
       $sqlLines.Add("INSERT INTO mission_completions (key_id,mission_id,reward_id,completed_at) VALUES ($(SqlQuote $row.key_id),$(SqlQuote $row.mission_id),$(SqlQuote $row.reward_id),$(SqlQuote $row.completed_at));")
     }
-    $sqlLines.Add("COMMIT;")
     Set-Content -LiteralPath $seedFile -Value $sqlLines -Encoding UTF8
 
     Write-Host "[6/10] Seed minako data into staging D1" -ForegroundColor Green
