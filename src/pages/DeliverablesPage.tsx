@@ -12,6 +12,24 @@ function safeName(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]+/g, "_");
 }
 
+function chunkText(value: string, maxChars: number, maxLines = 2): string[] {
+  const normalized = value.trim();
+  if (!normalized) return [""];
+  const lines: string[] = [];
+  let cursor = 0;
+  while (cursor < normalized.length && lines.length < maxLines) {
+    const remaining = normalized.length - cursor;
+    const isLastAllowedLine = lines.length === maxLines - 1;
+    if (isLastAllowedLine && remaining > maxChars) {
+      lines.push(`${normalized.slice(cursor, cursor + Math.max(1, maxChars - 1))}…`);
+      break;
+    }
+    lines.push(normalized.slice(cursor, cursor + maxChars));
+    cursor += maxChars;
+  }
+  return lines;
+}
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const image = new Image();
@@ -85,11 +103,12 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
     ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
   });
   ctx.globalAlpha = 1;
-  const overlay = ctx.createLinearGradient(0, 0, 620, 0); overlay.addColorStop(0, "rgba(2,8,16,.98)"); overlay.addColorStop(1, "rgba(2,8,16,.12)"); ctx.fillStyle = overlay; ctx.fillRect(0,0,720,H);
+  const overlay = ctx.createLinearGradient(0, 0, 620, 0); overlay.addColorStop(0, "rgba(2,8,16,.99)"); overlay.addColorStop(1, "rgba(2,8,16,.18)"); ctx.fillStyle = overlay; ctx.fillRect(0,0,720,H);
   titleText(ctx, "KEY CRAFT 5000 / CURRENT SETTLEMENT", `${input.nickname} の極寒都市`, `${input.districtName} · ${input.completedMissions}/250 MISSION · ${input.completedPhrases}/5,000 PHRASES`);
   ctx.fillStyle = "#f4b942"; ctx.font = "900 118px sans-serif"; ctx.fillText(String(input.completedMissions).padStart(3,"0"), 74, 350);
   ctx.fillStyle = "#ffffff"; ctx.font = "800 28px sans-serif"; ctx.fillText("MISSIONS COMPLETE", 80, 395);
-  ctx.fillStyle = "rgba(255,255,255,.10)"; roundedRect(ctx, 72, 455, 500, 230, 28); ctx.fill();
+  ctx.fillStyle = "rgba(3,10,18,.94)"; roundedRect(ctx, 72, 455, 500, 230, 28); ctx.fill();
+  ctx.strokeStyle = "rgba(94,163,207,.34)"; ctx.lineWidth = 2; ctx.stroke();
   const stats = [["CRAFT", `${input.completedMissions}/250`],["入力", `${input.completedPhrases}/5000`],["都市LEVEL", `${Math.max(1, Math.floor(input.completedPhrases / 100) + 1)}`],["稼働", "良好"]] as const;
   stats.forEach(([label,value], index) => { const x = 105 + (index % 2) * 235; const y = 515 + Math.floor(index / 2) * 95; ctx.fillStyle="#86a1b5"; ctx.font="600 20px sans-serif"; ctx.fillText(label, x, y); ctx.fillStyle="#fff"; ctx.font="900 32px sans-serif"; ctx.fillText(value, x, y+37); });
   ctx.fillStyle="#ffb642"; ctx.font="800 22px sans-serif"; ctx.fillText("打つほど、世界ができていく。", 74, 830);
@@ -105,14 +124,19 @@ async function exportMissionCard(input: { filename: string; nickname: string; mi
   ctx.fillStyle="rgba(255,255,255,.06)"; roundedRect(ctx, 66,60,1468,780,38); ctx.fill();
   ctx.fillStyle="#f2b741"; ctx.font="800 26px sans-serif"; ctx.fillText("MISSION CLEAR", 110, 130);
   ctx.fillStyle="#fff"; ctx.font="900 104px sans-serif"; ctx.fillText(String(input.missionNumber).padStart(3,"0"), 105, 250);
-  ctx.font="900 54px sans-serif"; ctx.fillText(input.missionTitle, 110, 325);
-  ctx.fillStyle="#a7bdcf"; ctx.font="500 24px sans-serif"; ctx.fillText(`${input.nickname} / KEY CRAFT 5000`, 112, 370);
+  const titleLines = chunkText(input.missionTitle, 13, 2);
+  ctx.font="900 44px sans-serif";
+  titleLines.forEach((line, index) => ctx.fillText(line, 110, 315 + index * 54));
+  ctx.fillStyle="#a7bdcf"; ctx.font="500 23px sans-serif"; ctx.fillText(`${input.nickname} / KEY CRAFT 5000`, 112, titleLines.length > 1 ? 420 : 374);
   if (building) ctx.drawImage(building, 765, 155, 560, 560);
   if (hero) { ctx.save(); roundedRect(ctx, 1275, 510, 190, 250, 26); ctx.clip(); drawCover(ctx, hero, 1275,510,190,250); ctx.restore(); }
-  ctx.fillStyle="rgba(3,8,14,.88)"; roundedRect(ctx, 105, 455, 620, 255, 24); ctx.fill();
-  ctx.fillStyle="#f2b741"; ctx.font="800 20px sans-serif"; ctx.fillText("報酬獲得", 140, 505); ctx.fillStyle="#fff"; ctx.font="900 36px sans-serif"; ctx.fillText(input.rewardName, 140, 555);
+  ctx.fillStyle="rgba(3,8,14,.94)"; roundedRect(ctx, 105, 455, 620, 285, 24); ctx.fill();
+  ctx.fillStyle="#f2b741"; ctx.font="800 20px sans-serif"; ctx.fillText("報酬獲得", 140, 505);
+  const rewardLines = chunkText(input.rewardName, 16, 2);
+  ctx.fillStyle="#fff"; ctx.font="900 30px sans-serif";
+  rewardLines.forEach((line, index) => ctx.fillText(line, 140, 550 + index * 37));
   const icons = await Promise.all(premiumRewardIcons.map(loadImage));
-  icons.forEach((icon,index)=>{ const x=140+index*132; ctx.fillStyle="#11263b"; roundedRect(ctx,x,590,105,105,16); ctx.fill(); if(icon) ctx.drawImage(icon,x+10,600,85,85); });
+  icons.forEach((icon,index)=>{ const x=140+index*132; ctx.fillStyle="#11263b"; roundedRect(ctx,x,620,105,105,16); ctx.fill(); if(icon) ctx.drawImage(icon,x+10,630,85,85); });
   ctx.fillStyle="#7dd7ff"; ctx.font="700 20px sans-serif"; ctx.fillText("新しい建物とクルーが都市へ追加されました", 110, 790);
   downloadCanvas(canvas, input.filename);
 }
