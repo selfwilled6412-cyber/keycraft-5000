@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { usePlayer } from "../context/PlayerContext";
 import { Logo } from "./Logo";
+import { StoredDeliverablesShelf } from "./StoredDeliverablesShelf";
 
 const navItems = [
   { to: "/map", label: "拠点", icon: "♜" },
@@ -41,7 +42,10 @@ export function Layout() {
           <strong>{loading ? "------" : session?.keyId ?? "GUEST"}</strong>
         </div>
       </header>
-      <main><Outlet /></main>
+      <main>
+        <Outlet />
+        {pathname === "/deliverables" && <StoredDeliverablesShelf />}
+      </main>
       <footer className="site-footer premium-site-footer">
         <Logo />
         <p>打つほど、世界ができていく。</p>
