@@ -1,17 +1,15 @@
-param(
-  [string]$RepoPath = (Get-Location).Path
-)
+param()
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$repo = (Resolve-Path $RepoPath).Path
-$branch = "origin/agent/btype-v1-complete"
+$repoUrl = "https://github.com/selfwilled6412-cyber/keycraft-5000.git"
+$branch = "agent/premium-game-ui-v2"
 $stagingWorker = "keycraft-5000-staging"
 $prodDb = "keycraft-5000-db"
 $stagingDb = "keycraft-5000-staging-db"
 $workersSubdomain = "selfwilled6412"
-$worktree = Join-Path $env:TEMP ("keycraft-5000-staging-" + [Guid]::NewGuid().ToString("N"))
+$cloneDir = Join-Path $env:TEMP ("keycraft-premium-clone-" + [Guid]::NewGuid().ToString("N"))
 $seedFile = Join-Path $env:TEMP ("keycraft-minako-seed-" + [Guid]::NewGuid().ToString("N") + ".sql")
 
 function Run([string]$command, [string[]]$arguments) {
@@ -38,25 +36,22 @@ function QueryRows([string]$database, [string]$sql) {
 }
 
 try {
-  Write-Host "[1/10] Fetch staging branch" -ForegroundColor Green
-  Run "git" @("-C", $repo, "fetch", "origin", "+refs/heads/agent/btype-v1-complete:refs/remotes/origin/agent/btype-v1-complete")
+  Write-Host "[1/10] Fresh-clone Premium UI v2 branch" -ForegroundColor Green
+  Run "git" @("clone", "--depth", "1", "--single-branch", "--branch", $branch, $repoUrl, $cloneDir)
 
-  Write-Host "[2/10] Create isolated temporary worktree" -ForegroundColor Green
-  Run "git" @("-C", $repo, "worktree", "add", "--detach", $worktree, $branch)
-
-  Push-Location $worktree
+  Push-Location $cloneDir
   try {
-    Write-Host "[3/10] Install dependencies" -ForegroundColor Green
+    Write-Host "[2/10] Install dependencies" -ForegroundColor Green
     Run "npm.cmd" @("ci")
 
-    Write-Host "[4/10] Re-create staging D1 only (production DB is never modified)" -ForegroundColor Green
+    Write-Host "[3/10] Re-create staging D1 only (production DB is never modified)" -ForegroundColor Green
     $listRaw = (& npx.cmd wrangler d1 list --json | Out-String)
     if ($LASTEXITCODE -ne 0) { throw "Could not list D1 databases" }
     $dbs = $listRaw | ConvertFrom-Json
     if ($dbs | Where-Object { $_.name -eq $stagingDb }) {
       Run "npx.cmd" @("wrangler", "d1", "delete", $stagingDb, "-y")
     }
-    Run "npx.cmd" @("wrangler", "d1", "create", $stagingDb, "--location", "apac")
+    Run "npx.cmd" @("wrangler", "d1", "create", $stagingDb, "--location", "apac", "--binding", "DB", "--update-config", "false")
 
     $listRaw = (& npx.cmd wrangler d1 list --json | Out-String)
     if ($LASTEXITCODE -ne 0) { throw "Could not re-list D1 databases" }
@@ -66,10 +61,10 @@ try {
     $dbId = if ($db.uuid) { $db.uuid } elseif ($db.id) { $db.id } else { $null }
     if (-not $dbId) { throw "Could not determine staging D1 database id" }
 
-    Write-Host "[5/10] Apply schema to staging D1" -ForegroundColor Green
+    Write-Host "[4/10] Apply schema to staging D1" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", "migrations/0001_initial_schema.sql", "-y")
 
-    Write-Host "[6/10] Read minako only from production D1" -ForegroundColor Green
+    Write-Host "[5/10] Read minako only from production D1 (read-only queries)" -ForegroundColor Green
     $users = QueryRows $prodDb "SELECT key_id,nickname,created_at,last_seen_at FROM users WHERE lower(trim(nickname))='minako';"
     if ($users.Count -eq 0) { throw "No user named minako was found in production D1" }
 
@@ -80,8 +75,6 @@ try {
     $completions = QueryRows $prodDb "SELECT key_id,mission_id,reward_id,completed_at FROM mission_completions WHERE key_id IN ($keyList) ORDER BY completed_at;"
 
     $sqlLines = New-Object System.Collections.Generic.List[string]
-    $sqlLines.Add("PRAGMA foreign_keys = ON;")
-    $sqlLines.Add("BEGIN TRANSACTION;")
     foreach ($row in $users) {
       $sqlLines.Add("INSERT INTO users (key_id,nickname,created_at,last_seen_at) VALUES ($(SqlQuote $row.key_id),$(SqlQuote $row.nickname),$(SqlQuote $row.created_at),$(SqlQuote $row.last_seen_at));")
     }
@@ -96,16 +89,15 @@ try {
     foreach ($row in $completions) {
       $sqlLines.Add("INSERT INTO mission_completions (key_id,mission_id,reward_id,completed_at) VALUES ($(SqlQuote $row.key_id),$(SqlQuote $row.mission_id),$(SqlQuote $row.reward_id),$(SqlQuote $row.completed_at));")
     }
-    $sqlLines.Add("COMMIT;")
     Set-Content -LiteralPath $seedFile -Value $sqlLines -Encoding UTF8
 
-    Write-Host "[7/10] Seed minako data into staging D1" -ForegroundColor Green
+    Write-Host "[6/10] Seed minako data into staging D1" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", $seedFile, "-y")
 
-    Write-Host "[8/10] Build the B-type candidate" -ForegroundColor Green
+    Write-Host "[7/10] Build Premium UI v2" -ForegroundColor Green
     Run "npm.cmd" @("run", "build")
 
-    $configPath = Join-Path $worktree "wrangler.staging.generated.jsonc"
+    $configPath = Join-Path $cloneDir "wrangler.staging.generated.jsonc"
     $config = @"
 {
   "`$schema": "./node_modules/wrangler/config-schema.json",
@@ -128,40 +120,35 @@ try {
       "migrations_dir": "./migrations"
     }
   ],
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1
-  }
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
 }
 "@
     Set-Content -LiteralPath $configPath -Value $config -Encoding UTF8
 
-    Write-Host "[9/10] Deploy to staging Worker only" -ForegroundColor Green
+    Write-Host "[8/10] Deploy Premium UI v2 to staging Worker only" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "deploy", "--config", $configPath)
 
-    Write-Host "[10/10] Verify minako data in staging D1" -ForegroundColor Green
+    Write-Host "[9/10] Verify minako data in staging D1" -ForegroundColor Green
     $verifySql = "SELECT u.key_id,u.nickname,COUNT(DISTINCT p.phrase_id) AS phrase_count,COUNT(DISTINCT mc.mission_id) AS mission_count,MAX(u.last_seen_at) AS last_seen_at FROM users u LEFT JOIN progress p ON p.key_id=u.key_id LEFT JOIN mission_completions mc ON mc.key_id=u.key_id WHERE lower(trim(u.nickname))='minako' GROUP BY u.key_id,u.nickname;"
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--command", $verifySql)
 
+    Write-Host "[10/10] HTTP check" -ForegroundColor Green
     $url = "https://$stagingWorker.$workersSubdomain.workers.dev"
-    Write-Host ""
-    Write-Host "STAGING READY" -ForegroundColor Green
-    Write-Host $url -ForegroundColor Yellow
-    Write-Host "Only minako data was copied from production." -ForegroundColor Green
     try {
       $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
       Write-Host ("HTTP " + [int]$response.StatusCode + " confirmed") -ForegroundColor Green
     } catch {
       Write-Warning "Deployment completed, but automatic HTTP check failed. Open the URL manually."
     }
+
+    Write-Host ""
+    Write-Host "PREMIUM UI V2 STAGING READY" -ForegroundColor Green
+    Write-Host $url -ForegroundColor Yellow
+    Write-Host "Only minako data was copied from production. Production Worker and D1 were not modified." -ForegroundColor Green
   }
-  finally {
-    Pop-Location
-  }
+  finally { Pop-Location }
 }
 finally {
-  if (Test-Path $seedFile) { Remove-Item -LiteralPath $seedFile -Force }
-  if (Test-Path $worktree) {
-    try { & git -C $repo worktree remove --force $worktree | Out-Null } catch { }
-  }
+  if (Test-Path $seedFile) { try { Remove-Item -LiteralPath $seedFile -Force -ErrorAction SilentlyContinue } catch { } }
+  if (Test-Path $cloneDir) { try { Remove-Item -LiteralPath $cloneDir -Recurse -Force -ErrorAction SilentlyContinue } catch { } }
 }
