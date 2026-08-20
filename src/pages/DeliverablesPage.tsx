@@ -210,7 +210,8 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
     ctx.restore();
   });
 
-  [[640, 570], [820, 545], [1085, 545], [1250, 670], [990, 700], [760, 710]].forEach(([x, y], index) => drawLamp(ctx, x, y, index % 2 === 0 ? 1.15 : .95));
+  const lampPositions = [[640, 570], [820, 545], [1085, 545], [1250, 670], [990, 700], [760, 710]] as const;
+  lampPositions.forEach(([x, y], index) => drawLamp(ctx, x, y, index % 2 === 0 ? 1.15 : .95));
 
   heroImages.forEach((image, index) => {
     if (!image) return;
