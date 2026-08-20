@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $repo = (Resolve-Path $RepoPath).Path
-$branch = "origin/agent/btype-v1-complete"
+$branch = "origin/agent/hardcore-game-ui-v1"
 $stagingWorker = "keycraft-5000-staging"
 $prodDb = "keycraft-5000-db"
 $stagingDb = "keycraft-5000-staging-db"
@@ -38,8 +38,8 @@ function QueryRows([string]$database, [string]$sql) {
 }
 
 try {
-  Write-Host "[1/10] Fetch staging branch" -ForegroundColor Green
-  Run "git" @("-C", $repo, "fetch", "origin", "+refs/heads/agent/btype-v1-complete:refs/remotes/origin/agent/btype-v1-complete")
+  Write-Host "[1/10] Fetch hardcore staging branch" -ForegroundColor Green
+  Run "git" @("-C", $repo, "fetch", "origin", "+refs/heads/agent/hardcore-game-ui-v1:refs/remotes/origin/agent/hardcore-game-ui-v1")
 
   Write-Host "[2/10] Create isolated temporary worktree" -ForegroundColor Green
   Run "git" @("-C", $repo, "worktree", "add", "--detach", $worktree, $branch)
@@ -102,7 +102,7 @@ try {
     Write-Host "[7/10] Seed minako data into staging D1" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", $seedFile, "-y")
 
-    Write-Host "[8/10] Build the B-type candidate" -ForegroundColor Green
+    Write-Host "[8/10] Build hardcore game UI candidate" -ForegroundColor Green
     Run "npm.cmd" @("run", "build")
 
     $configPath = Join-Path $worktree "wrangler.staging.generated.jsonc"
@@ -136,7 +136,7 @@ try {
 "@
     Set-Content -LiteralPath $configPath -Value $config -Encoding UTF8
 
-    Write-Host "[9/10] Deploy to staging Worker only" -ForegroundColor Green
+    Write-Host "[9/10] Deploy hardcore UI to staging Worker only" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "deploy", "--config", $configPath)
 
     Write-Host "[10/10] Verify minako data in staging D1" -ForegroundColor Green
@@ -145,9 +145,9 @@ try {
 
     $url = "https://$stagingWorker.$workersSubdomain.workers.dev"
     Write-Host ""
-    Write-Host "STAGING READY" -ForegroundColor Green
+    Write-Host "HARDCORE UI STAGING READY" -ForegroundColor Green
     Write-Host $url -ForegroundColor Yellow
-    Write-Host "Only minako data was copied from production." -ForegroundColor Green
+    Write-Host "Only minako data was copied from production. Production Worker and D1 were not modified." -ForegroundColor Green
     try {
       $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
       Write-Host ("HTTP " + [int]$response.StatusCode + " confirmed") -ForegroundColor Green
