@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  mission-complete-to-r2:
+  mission-complete-to-kv:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -45,7 +45,7 @@ jobs:
           console.log(`INSERT INTO progress (key_id,phrase_id,mission_id,accuracy,keystrokes,miss_keys_json,completed_at) VALUES ${values.join(',')};`);
           EOF
           npx wrangler d1 execute keycraft-5000-db --local --file /tmp/keycraft-autodeliverable-seed.sql -y
-      - name: Start local Worker with D1 and R2
+      - name: Start local Worker with D1 and KV
         shell: bash
         run: |
           npx wrangler dev --local --port 8789 --log-level warn > /tmp/keycraft-auto-wrangler.log 2>&1 &
@@ -105,7 +105,7 @@ jobs:
 
           await page.screenshot({ path: '/tmp/keycraft-auto-complete.png', fullPage: true });
           await browser.close();
-          console.log(`AUTO DELIVERABLES E2E PASS: typed phrase 20 -> mission complete -> ${items.length} PNGs -> D1 registry -> R2 -> PNG retrieval.`);
+          console.log(`AUTO DELIVERABLES E2E PASS: typed phrase 20 -> mission complete -> ${items.length} PNGs -> D1 registry -> Workers KV -> PNG retrieval.`);
           EOF
       - name: Upload E2E visual proof
         if: always()
