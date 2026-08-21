@@ -1,19 +1,29 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlayerLookupDialog } from "../components/PlayerLookupDialog";
-import { RewardIcon } from "../components/RewardIcon";
-import { WorldPreview } from "../components/WorldPreview";
+import { PremiumSettlement } from "../components/PremiumSettlement";
 import { catalog } from "../content/catalog";
+import { premiumHeroes, premiumRewardIcons } from "../content/premiumAssets";
 import { usePlayer } from "../context/PlayerContext";
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { session, loading, startNew, continueWith } = usePlayer();
+  const { session, startNew, continueWith } = usePlayer();
   const [lookupOpen, setLookupOpen] = useState(false);
   const [startingNew, setStartingNew] = useState(false);
   const [newNickname, setNewNickname] = useState("");
   const [busy, setBusy] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+
+  const completedMissions = session?.completedMissionIds.length ?? 0;
+  const completedPhrases = session?.progress.length ?? 0;
+  const currentMission = useMemo(() => session ? catalog.missions.find((mission) => !session.completedMissionIds.includes(mission.id)) ?? catalog.missions[catalog.missions.length - 1]! : catalog.missions[0]!, [session]);
+  const currentDistrict = catalog.districts.find((district) => district.id === currentMission.districtId);
+  const completedInMission = session?.progress.filter((item) => item.missionId === currentMission.id).length ?? 0;
+  const missionPercent = Math.min(100, completedInMission * 5);
+  const level = Math.max(1, Math.floor(completedPhrases / 100) + 1);
+  const nextHero = premiumHeroes.find((hero) => completedMissions < hero.unlockMission) ?? premiumHeroes[premiumHeroes.length - 1]!;
+  const unlockedHeroCount = premiumHeroes.filter((hero) => completedMissions >= hero.unlockMission).length;
 
   const openNewPlayer = () => {
     setNewNickname("");
@@ -41,117 +51,73 @@ export function HomePage() {
   const handlePlayerSelect = async (keyId: string) => {
     await continueWith(keyId);
     setLookupOpen(false);
-    void navigate("/play");
+    void navigate("/");
   };
 
   return (
-    <div className="home-page">
-      <section className="hero section-pad">
-        <div className="hero-copy">
-          <p className="eyebrow"><span>●</span> 登録なしですぐ遊べる</p>
-          <h1><span>KEY CRAFT</span><strong>5000</strong></h1>
-          <p className="tagline">打つほど、<em>世界ができていく。</em></p>
-          <p className="hero-description">速さだけを競わない、新しいタイピングゲーム。<br />ひとつ打つたび、あなただけの街が少しずつ育ちます。</p>
-          <div className="hero-actions">
-            <button className="button primary large" type="button" onClick={openNewPlayer} disabled={busy || loading}>
-              <span>{session ? "新しい世界を始める" : "すぐ始める"}</span><b aria-hidden="true">→</b>
-            </button>
-            {session ? (
-              <>
-                <button className="button secondary large" type="button" onClick={() => navigate("/play")}>
-                  つづきのMISSIONへ
-                </button>
-                <button className="text-button" type="button" onClick={() => setLookupOpen(true)}>
-                  共有PCで使う <span>利用者を切り替える →</span>
-                </button>
-              </>
-            ) : (
-              <button className="text-button" type="button" onClick={() => setLookupOpen(true)}>
-                以前遊んだ方 <span>名前でつづきから →</span>
-              </button>
-            )}
-          </div>
-          <div className="hero-facts" aria-label="ゲームの規模">
-            <div><strong>5,000</strong><span>フレーズ</span></div>
-            <div><strong>250</strong><span>MISSION</span></div>
-            <div><strong>250</strong><span>クラフト報酬</span></div>
-          </div>
-        </div>
-        <WorldPreview />
+    <div className="premium-command-page">
+      <PremiumSettlement completedMissions={completedMissions} completedPhrases={completedPhrases} nickname={session?.preferences.nickname} />
+
+      <section className="premium-top-hud">
+        <button type="button" className="premium-player-badge" onClick={() => setLookupOpen(true)}>
+          <span className="premium-avatar-ring"><img src={premiumHeroes[0]!.image} alt="" crossOrigin="anonymous" /></span>
+          <span><b>{session?.preferences.nickname ?? "NEW COMMANDER"}</b><small>LV.{String(level).padStart(2, "0")} · {completedPhrases.toLocaleString()} / 5,000</small></span>
+        </button>
+        <div className="premium-resource"><span>🔥</span><b>{(completedPhrases * 9 + 320).toLocaleString()}</b><small>+{level * 8}/分</small></div>
+        <div className="premium-resource"><span>🪵</span><b>{(completedPhrases * 13 + 480).toLocaleString()}</b><small>+{level * 11}/分</small></div>
+        <div className="premium-resource"><span>⬢</span><b>{(completedMissions * 84 + 90).toLocaleString()}</b><small>+{completedMissions + 4}/分</small></div>
+        <div className="premium-resource crystal"><span>◆</span><b>{completedMissions * 20 + 20}</b><small>CRAFT</small></div>
       </section>
 
-      <section className="loop-section section-pad">
-        <div className="section-heading centered">
-          <p className="eyebrow">HOW TO CRAFT</p>
-          <h2>打つ。完成する。<br /><span>次の景色へ。</span></h2>
-          <p>むずかしい説明はありません。ひとつのMISSIONが、あなたの世界のひとつになります。</p>
-        </div>
-        <div className="loop-grid">
-          <article><div className="step-number">01</div><div className="step-visual keyboard-mini"><b>F</b><b>J</b></div><h3>ことばを打つ</h3><p>次のキーと使う指が見えるから、初めてでも迷いません。</p></article>
-          <article><div className="step-number">02</div><div className="step-visual progress-mini"><span style={{ width: "72%" }} /></div><h3>20フレーズで完成</h3><p>時間制限なし。自分のペースで一歩ずつ進めます。</p></article>
-          <article><div className="step-number">03</div><div className="step-visual"><RewardIcon id="demo-reward" kind="shop" size={82} /></div><h3>街に新しい建物</h3><p>クリアするたび、CRAFT MAPに施設や景色が増えます。</p></article>
-        </div>
+      <aside className="premium-weather-card">
+        <span>猛吹雪到来</span><strong>-27.3°C</strong><b>00:48:37</b>
+        <div><small>拠点耐性</small><em>中</em></div><div><small>住民の体調</small><em className="good">良好</em></div><div><small>英雄</small><em>{unlockedHeroCount}/{premiumHeroes.length}</em></div>
+      </aside>
+
+      <section className="premium-mission-card">
+        <span>⚒ メインMISSION</span>
+        <small>MISSION {String(currentMission.number).padStart(3, "0")}</small>
+        <h2>{currentMission.title}</h2>
+        <p>{currentDistrict?.name ?? "FROST DISTRICT"}</p>
+        <div className="premium-progress-bar"><i style={{ width: `${missionPercent}%` }} /><b>{completedInMission} / 20</b></div>
+        <button type="button" onClick={() => session ? navigate(`/play?mission=${currentMission.id}`) : openNewPlayer()}>{session ? "MISSION開始" : "最初の拠点を作る"}<span>▶</span></button>
       </section>
 
-      <section className="zones-section section-pad">
-        <div className="section-heading">
-          <p className="eyebrow">5 ZONES / 25 DISTRICTS</p>
-          <h2>小さな街から、<br /><span>未来の世界まで。</span></h2>
+      <section className="premium-event-card">
+        <div className="premium-event-art"><img src={nextHero.image} alt="" crossOrigin="anonymous" /></div>
+        <div className="premium-event-copy"><span>CHAPTER {String(Math.floor(completedMissions / 10) + 1).padStart(2, "0")}</span><h1>{completedMissions ? "新区画へ出発！" : "極寒都市、始動。"}</h1><p>{completedMissions ? `次の仲間「${nextHero.name}」と、新しい建物が待っている。` : "最初の20フレーズから、自分だけの都市を築き始めよう。"}</p></div>
+        <div className="premium-reward-strip">
+          {premiumRewardIcons.map((icon, index) => <div key={icon}><img src={icon} alt="" crossOrigin="anonymous" /><b>x{index === 0 ? 300 : index + 1}</b></div>)}
         </div>
-        <div className="zone-ribbon">
-          {catalog.zones.map((zone) => (
-            <article key={zone.id} style={{ "--zone": zone.accent } as CSSProperties}>
-              <span>ZONE {String(zone.number).padStart(2, "0")}</span>
-              <b>{zone.name}</b>
-              <h3>{zone.japaneseName}</h3>
-              <p>{zone.description}</p>
-              <small>LEVEL {zone.level}</small>
-            </article>
-          ))}
-        </div>
+        <button type="button" onClick={() => session ? navigate(`/play?mission=${currentMission.id}`) : openNewPlayer()}>{session ? "探索を続ける" : "ゲーム開始"}</button>
       </section>
 
-      <section className="final-cta section-pad">
-        <div><p className="eyebrow">YOUR WORLD IS WAITING</p><h2>最初の一打から、<br />世界を作ろう。</h2></div>
-      </section>
+      <div className="premium-side-menu">
+        <button type="button" onClick={() => navigate("/heroes")}><span>♟</span><b>英雄</b><i>{unlockedHeroCount}</i></button>
+        <button type="button" onClick={() => navigate("/deliverables")}><span>◆</span><b>成果物</b>{completedMissions > 0 && <i>!</i>}</button>
+        <button type="button" onClick={() => navigate("/progress")}><span>★</span><b>実績</b></button>
+        <button type="button" onClick={() => setLookupOpen(true)}><span>👤</span><b>利用者</b></button>
+      </div>
+
+      <nav className="premium-bottom-nav" aria-label="ゲームメニュー">
+        <button className="active" type="button" onClick={() => navigate("/")}><span>♜</span><b>拠点</b></button>
+        <button type="button" onClick={() => navigate("/map")}><span>⚒</span><b>建設</b></button>
+        <button type="button" onClick={() => navigate("/heroes")}><span>♟</span><b>英雄</b></button>
+        <button type="button" onClick={() => session ? navigate("/play") : openNewPlayer()}><span>⌨</span><b>タイピング</b></button>
+        <button type="button" onClick={() => navigate("/deliverables")}><span>◆</span><b>成果物</b></button>
+      </nav>
 
       {startingNew && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !busy && setStartingNew(false)}>
-          <section className="modal-card new-player-card" role="dialog" aria-modal="true" aria-labelledby="new-player-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop premium-modal-backdrop" role="presentation" onMouseDown={() => !busy && setStartingNew(false)}>
+          <section className="modal-card new-player-card premium-modal-card" role="dialog" aria-modal="true" aria-labelledby="new-player-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" type="button" onClick={() => setStartingNew(false)} disabled={busy} aria-label="閉じる">×</button>
-            <p className="eyebrow">NEW PLAYER</p>
-            <h2 id="new-player-title">新しい世界を始める</h2>
-            <p>次回、名前だけで続きを探せるように利用者名を決めます。本名でなくニックネームでもOKです。</p>
-            {session && <div className="switch-save-note"><strong>✓ 今の世界はそのまま保存されています</strong><span>新しい利用者として別の世界を作ります。</span></div>}
-            <form onSubmit={(event) => void handleStart(event)}>
-              <label htmlFor="new-player-name">利用者名（名前・ニックネーム）</label>
-              <input
-                autoFocus
-                className="player-name-input"
-                id="new-player-name"
-                value={newNickname}
-                maxLength={24}
-                onChange={(event) => setNewNickname(event.target.value)}
-                placeholder="例：ゆうき"
-                autoComplete="off"
-              />
-              {startError && <p className="form-error" role="alert">{startError}</p>}
-              <button className="button primary" type="submit" disabled={busy || !newNickname.trim()}>{busy ? "作成中…" : "この名前で始める →"}</button>
-            </form>
+            <p className="eyebrow">NEW COMMANDER</p><h2 id="new-player-title">新しい拠点を始める</h2><p>利用者名を決めると、別のPCからでも名前で続きを探せます。</p>
+            <form onSubmit={(event) => void handleStart(event)}><label htmlFor="new-player-name">利用者名</label><input autoFocus className="player-name-input" id="new-player-name" value={newNickname} maxLength={24} onChange={(event) => setNewNickname(event.target.value)} placeholder="例：ゆうき" autoComplete="off" />{startError && <p className="form-error" role="alert">{startError}</p>}<button className="button primary" type="submit" disabled={busy || !newNickname.trim()}>{busy ? "拠点作成中…" : "この名前で開始 →"}</button></form>
           </section>
         </div>
       )}
 
-      {lookupOpen && (
-        <PlayerLookupDialog
-          title={session ? "利用者を切り替える" : "つづきから"}
-          description={session ? "次の利用者の名前を入力してください。完了した進み具合は自動保存されています。" : "前に使った名前・ニックネームを入力してください。"}
-          currentNickname={session?.preferences.nickname}
-          currentKeyId={session?.keyId}
-          onClose={() => setLookupOpen(false)}
-          onSelect={handlePlayerSelect}
-        />
-      )}
+      {lookupOpen && <PlayerLookupDialog title={session ? "利用者を切り替える" : "つづきから"} description="名前・ニックネームで保存済みの世界を探します。" currentNickname={session?.preferences.nickname} currentKeyId={session?.keyId} onClose={() => setLookupOpen(false)} onSelect={handlePlayerSelect} />}
     </div>
   );
 }

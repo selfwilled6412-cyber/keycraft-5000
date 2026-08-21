@@ -21,3 +21,34 @@ jobs:
       - run: npm run build
       - run: npm run deploy:dry
       - run: npm run smoke
+      - name: Local D1 + KV deliverables E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute keycraft-5000-db --local --file migrations/0001_initial_schema.sql -y
+          npx wrangler d1 execute keycraft-5000-db --local --file migrations/0002_deliverables.sql -y
+          npx wrangler dev --local --port 8788 --log-level warn > /tmp/keycraft-wrangler-dev.log 2>&1 &
+          WRANGLER_PID=$!
+          trap 'kill $WRANGLER_PID >/dev/null 2>&1 || true' EXIT
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8788/api/health >/dev/null; then break; fi
+            if ! kill -0 $WRANGLER_PID >/dev/null 2>&1; then cat /tmp/keycraft-wrangler-dev.log; exit 1; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8788/api/health >/dev/null || { cat /tmp/keycraft-wrangler-dev.log; exit 1; }
+
+          KEY_ID=$(curl -fsS -X POST http://127.0.0.1:8788/api/users -H 'Content-Type: application/json' -d '{}' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).keyId))')
+          head -c 4096 /dev/zero > /tmp/keycraft-e2e.png
+          curl -fsS -X POST http://127.0.0.1:8788/api/deliverables \
+            -F "keyId=$KEY_ID" \
+            -F 'kind=mission_clear' \
+            -F 'eventKey=mission:m001' \
+            -F 'filename=KEYCRAFT_E2E_MISSION001_CLEAR.png' \
+            -F 'metadata={"missionId":"m001","source":"ci"}' \
+            -F 'file=@/tmp/keycraft-e2e.png;type=image/png' > /tmp/keycraft-upload.json
+
+          LIST=$(curl -fsS -X POST http://127.0.0.1:8788/api/deliverables/list -H 'Content-Type: application/json' -d "{\"keyId\":\"$KEY_ID\"}")
+          DELIVERABLE_ID=$(printf '%s' "$LIST" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const x=JSON.parse(s).deliverables;if(!Array.isArray(x)||x.length!==1)process.exit(2);process.stdout.write(x[0].id)})')
+          curl -fsS "http://127.0.0.1:8788/api/deliverables/file/$DELIVERABLE_ID?keyId=$KEY_ID" -o /tmp/keycraft-e2e-roundtrip.png
+          cmp /tmp/keycraft-e2e.png /tmp/keycraft-e2e-roundtrip.png
+          echo "Deliverables E2E passed: upload -> D1 registry -> Workers KV -> list -> file roundtrip."

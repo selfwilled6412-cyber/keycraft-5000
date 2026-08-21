@@ -1,0 +1,326 @@
+.play-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #eef7ff;
+  background:
+    linear-gradient(180deg, rgba(4, 12, 21, .18), rgba(3, 9, 16, .78)),
+    radial-gradient(circle at 50% 24%, rgba(114, 163, 201, .24), transparent 27%),
+    linear-gradient(180deg, #091827 0 21%, #aec3d1 22% 100%);
+}
+
+.play-page::before {
+  content: "";
+  position: fixed;
+  inset: 77px 0 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(180deg, rgba(7, 19, 31, .18), rgba(4, 10, 17, .64)),
+    url("https://raw.githubusercontent.com/SpriteCook/spritecook-free-game-assets/master/examples/isometric-buildings/building11.png"),
+    url("https://raw.githubusercontent.com/SpriteCook/spritecook-free-game-assets/master/examples/isometric-buildings/animated_house_2.webp"),
+    url("https://raw.githubusercontent.com/SpriteCook/spritecook-free-game-assets/master/examples/isometric-buildings/building6.png"),
+    url("https://raw.githubusercontent.com/SpriteCook/spritecook-free-game-assets/master/examples/isometric-buildings/building3.png");
+  background-repeat: no-repeat;
+  background-position: center, 3% 25%, 17% 72%, 94% 31%, 83% 74%;
+  background-size: cover, 260px 260px, 285px 285px, 260px 260px, 250px 250px;
+  filter: saturate(.9) brightness(.82);
+  opacity: .92;
+}
+
+.play-page::after {
+  content: "";
+  position: fixed;
+  right: 10px;
+  bottom: 0;
+  z-index: -1;
+  width: 285px;
+  height: 430px;
+  pointer-events: none;
+  background: url("https://raw.githubusercontent.com/SpriteCook/spritecook-free-game-assets/master/examples/detailed-characters-anime/battleworn_knight.png") center bottom / contain no-repeat;
+  filter: drop-shadow(0 18px 24px rgba(0,0,0,.55));
+  opacity: .42;
+}
+
+.play-topbar {
+  position: relative;
+  z-index: 6;
+  height: 70px;
+  background: linear-gradient(180deg, rgba(8, 24, 39, .99), rgba(4, 12, 21, .98));
+  border-bottom: 1px solid #34546d;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+
+.play-topbar > a {
+  color: #8fc9ee;
+  font-weight: 800;
+}
+
+.play-topbar > div:nth-child(2) span {
+  color: #f1b743;
+  letter-spacing: .12em;
+}
+
+.play-topbar > div:nth-child(2) strong {
+  color: #fff;
+  font-size: 16px;
+}
+
+.assist-badge {
+  min-width: 60px;
+  padding: 6px 9px;
+  border: 1px solid rgba(91, 147, 186, .28);
+  background: rgba(11, 31, 48, .7);
+  border-radius: 5px;
+}
+
+.mission-progress-bar {
+  position: relative;
+  z-index: 5;
+  height: 7px;
+  background: #07111b;
+  border-bottom: 1px solid #233c51;
+}
+
+.mission-progress-bar > span {
+  background: linear-gradient(90deg, #d98d18, #ffd25b);
+  box-shadow: 0 0 14px rgba(244, 179, 47, .48);
+}
+
+.mission-progress-bar b {
+  top: 14px;
+  color: #a9c0d0;
+  text-shadow: 0 2px 4px #000;
+}
+
+.typing-stage {
+  position: relative;
+  z-index: 2;
+  grid-template-columns: minmax(0, 1fr) 285px;
+  gap: 20px;
+}
+
+.typing-card {
+  position: relative;
+  overflow: hidden;
+  color: #eef7ff;
+  background: linear-gradient(180deg, rgba(8, 22, 35, .95), rgba(3, 10, 18, .97));
+  border: 1px solid #35536b;
+  box-shadow: 0 0 0 1px rgba(4, 11, 18, .72), 0 22px 52px rgba(0,0,0,.55), inset 0 1px rgba(164, 218, 250, .08);
+  backdrop-filter: blur(13px);
+}
+
+.typing-card::before {
+  content: "MISSION TERMINAL";
+  position: absolute;
+  right: 22px;
+  top: 14px;
+  color: rgba(88, 197, 255, .32);
+  font: 800 9px/1 monospace;
+  letter-spacing: .15em;
+}
+
+.typing-meta {
+  border-bottom-color: rgba(98, 145, 178, .22);
+  color: #7795aa;
+}
+
+.typing-meta > span {
+  color: #63cfff;
+  font-weight: 900;
+}
+
+.phrase-display {
+  margin-top: 8px;
+  border: 1px solid rgba(76, 132, 169, .18);
+  background: linear-gradient(180deg, rgba(15, 42, 64, .55), rgba(5, 16, 27, .42));
+  box-shadow: inset 0 0 34px rgba(63, 164, 220, .05);
+}
+
+.phrase-display.gentle-miss {
+  background: linear-gradient(180deg, rgba(91, 32, 25, .64), rgba(28, 11, 13, .48));
+  box-shadow: inset 0 0 34px rgba(255, 90, 55, .12);
+}
+
+.phrase-display .reading {
+  color: #7f9bae;
+}
+
+.phrase-display h1 {
+  color: #fff;
+  text-shadow: 0 3px 8px rgba(0,0,0,.48);
+}
+
+.roman-target {
+  color: #6bd0ff;
+}
+
+.typing-progress {
+  margin-top: 6px;
+  background: #07121d;
+  border: 1px solid rgba(72, 123, 157, .22);
+  border-radius: 0;
+}
+
+.typing-progress span {
+  background: linear-gradient(90deg, #38b6ef, #79e4ff);
+  box-shadow: 0 0 13px rgba(70, 196, 245, .42);
+}
+
+.typed-line {
+  color: #a7c2d3;
+  border-bottom: 1px solid rgba(79, 125, 155, .12);
+}
+
+.next-key-panel {
+  border-color: #335674;
+  background: rgba(5, 16, 26, .78);
+  box-shadow: 0 12px 28px rgba(0,0,0,.28);
+}
+
+.next-key-panel > div:first-child {
+  background: linear-gradient(180deg, #173d5c, #092338);
+  border-right: 1px solid #38627f;
+}
+
+.next-key-panel > div:first-child strong {
+  color: #ffd161;
+  text-shadow: 0 0 14px rgba(255, 190, 55, .34);
+}
+
+.live-stats span {
+  color: #7894a8;
+}
+
+.live-stats span + span {
+  border-left-color: rgba(91, 136, 166, .22);
+}
+
+.live-stats strong {
+  color: #f4faff;
+}
+
+.finger-copy small,
+.finger-copy span {
+  color: #6f899c;
+}
+
+.finger-copy strong {
+  color: #e7f4fc;
+}
+
+.hand i {
+  background: linear-gradient(180deg, #b8cbd5, #607887);
+  border-color: #7691a0;
+}
+
+.hand.active i {
+  filter: drop-shadow(0 0 7px rgba(78, 196, 250, .26));
+}
+
+.screen-keyboard kbd {
+  color: #b9ccd9;
+  background: linear-gradient(180deg, #132b3d, #091721);
+  border-color: #33536a;
+  box-shadow: inset 0 1px rgba(255,255,255,.04), 0 3px 6px rgba(0,0,0,.22);
+}
+
+.screen-keyboard kbd.active {
+  color: #07111a;
+  background: linear-gradient(180deg, #ffd364, #e7a326);
+  border-color: #ffd973;
+  box-shadow: 0 0 17px rgba(242, 177, 52, .48);
+}
+
+.typing-hint {
+  color: #7795a8;
+}
+
+.reward-preview {
+  position: relative;
+  overflow: hidden;
+  color: #edf8ff;
+  background: linear-gradient(180deg, rgba(10, 27, 43, .97), rgba(4, 11, 19, .98));
+  border: 1px solid #3e6079;
+  box-shadow: 0 18px 42px rgba(0,0,0,.46), inset 0 1px rgba(160, 218, 250, .06);
+  backdrop-filter: blur(12px);
+}
+
+.reward-preview::before {
+  content: "CRAFT REWARD";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 5px;
+  padding-top: 9px;
+  color: rgba(242, 182, 61, .62);
+  text-align: center;
+  font: 800 8px/1 monospace;
+  letter-spacing: .15em;
+  background: linear-gradient(90deg, transparent, #e6a82f 35%, #ffd66b 50%, #e6a82f 65%, transparent);
+}
+
+.reward-preview .eyebrow {
+  color: #f0b63f;
+}
+
+.reward-preview h2 {
+  color: #fff;
+}
+
+.reward-preview p {
+  color: #88a1b4;
+}
+
+.reward-preview > div {
+  background: #07111b;
+  border: 1px solid rgba(83, 129, 160, .24);
+}
+
+.reward-preview > div span {
+  background: linear-gradient(90deg, #45bdec, #7de0ff);
+}
+
+.reward-preview small {
+  color: #a2b8c8;
+}
+
+.recording-note {
+  color: #657f91 !important;
+  border-top: 1px solid rgba(83, 128, 158, .18);
+  padding-top: 11px;
+}
+
+.save-error {
+  background: rgba(72, 17, 19, .86);
+  border-color: #aa5154;
+  color: #ffd6d7;
+}
+
+.mobile-keyboard-note {
+  background: #0e2940;
+  color: #b8d8ec;
+}
+
+.complete-card {
+  color: #eef8ff;
+  background: linear-gradient(180deg, #0c253a, #050d17);
+  border: 1px solid #527691;
+  box-shadow: 0 26px 70px rgba(0,0,0,.62), 0 0 0 2px #07111b;
+}
+
+.complete-card h1,
+.complete-card p {
+  color: #fff;
+}
+
+@media (max-width: 1100px) {
+  .play-page::after { width: 220px; height: 340px; opacity: .25; }
+  .typing-stage { grid-template-columns: minmax(0, 1fr) 245px; }
+}
+
+@media (max-width: 760px) {
+  .play-page::before { background-size: cover, 150px 150px, 165px 165px, 150px 150px, 145px 145px; }
+  .play-page::after { display: none; }
+}

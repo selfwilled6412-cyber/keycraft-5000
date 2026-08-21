@@ -70,3 +70,48 @@ export async function postPhraseProgress(input: SavePhraseInput): Promise<SavePh
   }
   throw lastError ?? new Error("保存できませんでした。通信を確認してください");
 }
+
+export type DeliverableKind = "current_settlement" | "mission_clear" | "district_complete" | "hero_unlock";
+
+export interface DeliverableRecord {
+  id: string;
+  keyId: string;
+  kind: DeliverableKind;
+  eventKey: string;
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function uploadDeliverable(input: {
+  keyId: string;
+  kind: DeliverableKind;
+  eventKey: string;
+  filename: string;
+  metadata: Record<string, unknown>;
+  blob: Blob;
+}): Promise<{ saved: boolean; deliverable: DeliverableRecord }> {
+  const form = new FormData();
+  form.set("keyId", input.keyId);
+  form.set("kind", input.kind);
+  form.set("eventKey", input.eventKey);
+  form.set("filename", input.filename);
+  form.set("metadata", JSON.stringify(input.metadata));
+  form.set("file", input.blob, input.filename);
+  const response = await fetch("/api/deliverables", { method: "POST", body: form });
+  const data = (await response.json()) as { saved?: boolean; deliverable?: DeliverableRecord; error?: string };
+  if (!response.ok || !data.deliverable) throw new Error(data.error ?? "成果物を自動保存できませんでした");
+  return { saved: Boolean(data.saved), deliverable: data.deliverable };
+}
+
+export async function fetchDeliverables(keyId: string): Promise<{ deliverables: DeliverableRecord[] }> {
+  return apiRequest("/api/deliverables/list", { method: "POST", body: JSON.stringify({ keyId }) });
+}
+
+export function deliverableFileUrl(keyId: string, id: string, download = false): string {
+  const query = new URLSearchParams({ keyId });
+  if (download) query.set("download", "1");
+  return `/api/deliverables/file/${encodeURIComponent(id)}?${query.toString()}`;
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { uploadDeliverable } from "../api/client";
 import { FingerGuideView } from "../components/FingerGuideView";
 import { GameGate } from "../components/GameGate";
 import { OnScreenKeyboard } from "../components/OnScreenKeyboard";
@@ -8,6 +9,7 @@ import { RewardIcon } from "../components/RewardIcon";
 import { catalog, districtById, phrasesByMission } from "../content/catalog";
 import type { Mission, Phrase } from "../content/types";
 import { calculateAccuracy, RomanizationMatcher, type TypingSnapshot } from "../core/typing";
+import { createAutomaticMissionArtifacts } from "../deliverables/autoArtifacts";
 import { usePlayer } from "../context/PlayerContext";
 import { isMissionAvailable, nextMission } from "../game/progress";
 import { createTypingVideoRecorder, type TypingVideoRecorder } from "../game/typingVideoRecorder";
@@ -34,6 +36,7 @@ export function PlayPage() {
   const matcherRef = useRef<RomanizationMatcher | null>(null);
   const recorderRef = useRef<TypingVideoRecorder | null>(null);
   const recordedMissionRef = useRef<string | null>(null);
+  const artifactMissionRef = useRef<string | null>(null);
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(initialSnapshot);
   const [feedback, setFeedback] = useState<"ready" | "miss" | "saved" | "error">("ready");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -41,6 +44,8 @@ export function PlayPage() {
   const [missionComplete, setMissionComplete] = useState(session?.completedMissionIds.includes(mission.id) ?? false);
   const [switchingPlayer, setSwitchingPlayer] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState<"starting" | "recording" | "saved" | "unsupported">("starting");
+  const [artifactStatus, setArtifactStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [artifactCount, setArtifactCount] = useState(0);
   const initializedScopeRef = useRef("");
 
   const resetPhrase = useCallback((nextPhrase: Phrase | undefined) => {
@@ -60,6 +65,9 @@ export function PlayPage() {
     const nextIndex = newIndex === -1 ? 19 : newIndex;
     setPhraseIndex(nextIndex);
     setMissionComplete(session?.completedMissionIds.includes(mission.id) ?? false);
+    setArtifactStatus("idle");
+    setArtifactCount(0);
+    artifactMissionRef.current = null;
     resetPhrase(phrases[nextIndex]);
   }, [mission.id, phrases, resetPhrase, savedIds, session?.completedMissionIds, session?.keyId]);
 
@@ -125,6 +133,46 @@ export function PlayPage() {
     setRecordingStatus(saved ? "saved" : "unsupported");
   }, [mission, phrase, phraseIndex, session]);
 
+  const saveAutomaticArtifacts = useCallback(async () => {
+    if (!session || artifactMissionRef.current === mission.id) return;
+    artifactMissionRef.current = mission.id;
+    setArtifactStatus("saving");
+    setArtifactCount(0);
+    try {
+      const completedPhrasesAfter = session.progress.some((item) => item.phraseId === phrase?.id)
+        ? session.progress.length
+        : session.progress.length + 1;
+      const artifacts = await createAutomaticMissionArtifacts({
+        keyId: session.keyId,
+        nickname: session.preferences.nickname ?? session.keyId,
+        mission,
+        completedMissionIdsBefore: session.completedMissionIds,
+        completedPhrasesAfter,
+      });
+
+      const uploadWithRetry = async (artifact: (typeof artifacts)[number]) => {
+        let lastError: unknown = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            return await uploadDeliverable({ keyId: session.keyId, ...artifact });
+          } catch (error) {
+            lastError = error;
+            if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)));
+          }
+        }
+        throw lastError instanceof Error ? lastError : new Error("成果物を保存できませんでした");
+      };
+
+      await Promise.all(artifacts.map(uploadWithRetry));
+      setArtifactCount(artifacts.length);
+      setArtifactStatus("saved");
+    } catch (error) {
+      console.error("automatic deliverable save failed", error);
+      artifactMissionRef.current = null;
+      setArtifactStatus("error");
+    }
+  }, [mission, phrase?.id, session]);
+
   const completePhrase = useCallback(async (result: TypingSnapshot) => {
     if (!session || !phrase || saving) return;
     setSaving(true);
@@ -141,6 +189,7 @@ export function PlayPage() {
       if (response.missionCompleted || response.completedCount >= 20) {
         setMissionComplete(true);
         void finishMissionVideo(result);
+        void saveAutomaticArtifacts();
       } else {
         window.setTimeout(() => setPhraseIndex((current) => Math.min(19, current + 1)), 260);
       }
@@ -150,7 +199,7 @@ export function PlayPage() {
     } finally {
       setSaving(false);
     }
-  }, [finishMissionVideo, mission.id, phrase, savePhrase, saving, session]);
+  }, [finishMissionVideo, mission.id, phrase, saveAutomaticArtifacts, savePhrase, saving, session]);
 
   const handlePlayerSwitch = async (keyId: string) => {
     recorderRef.current?.cancel();
@@ -258,7 +307,13 @@ export function PlayPage() {
             <h1 id="complete-title">{mission.reward.name}<br /><span>が完成しました！</span></h1>
             <p>CRAFT MAPに新しい景色が追加されました。</p>
             <p>{recordingStatus === "saved" ? "制作動画も納品用ファイルとして保存しました。" : recordingStatus === "recording" ? "制作動画を保存しています…" : "動画保存に対応していないブラウザです。"}</p>
-            <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" onClick={() => navigate(`/play?mission=m${String(Math.min(250, mission.number + 1)).padStart(3, "0")}`)}>次のMISSIONへ →</button></div>
+            <p className={`artifact-save-status ${artifactStatus}`} aria-live="polite">
+              {artifactStatus === "saving" ? "成果物PNGを自動生成・クラウド保存しています…"
+                : artifactStatus === "saved" ? `成果物PNGを${artifactCount}件、自動保存しました。`
+                  : artifactStatus === "error" ? "進捗は保存済みです。成果物PNGの保存だけ自動再試行できませんでした。"
+                    : "成果物PNGはMISSION完了後に自動保存されます。"}
+            </p>
+            <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" disabled={artifactStatus === "saving"} onClick={() => navigate(`/play?mission=m${String(Math.min(250, mission.number + 1)).padStart(3, "0")}`)}>{artifactStatus === "saving" ? "成果物保存中…" : "次のMISSIONへ →"}</button></div>
           </section>
         </div>
       )}

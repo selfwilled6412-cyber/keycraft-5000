@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "keycraft-5000",
-  "main": "worker/index.ts",
+  "main": "worker/index-kv.ts",
   "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -16,6 +16,12 @@
       "database_name": "keycraft-5000-db",
       "database_id": "d8fdeccc-6d62-4353-823d-e0bcd2eedc9f",
       "migrations_dir": "./migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "DELIVERABLES_KV",
+      "id": "00000000000000000000000000000000"
     }
   ],
   "observability": {

@@ -8,6 +8,7 @@ import { ProgressPage } from "./pages/ProgressPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { GrowthDemoPage } from "./pages/GrowthDemoPage";
 import { DeliverablesPage } from "./pages/DeliverablesPage";
+import { HeroesPage } from "./pages/HeroesPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/play" element={<PlayPage />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/missions" element={<MissionsPage />} />
+        <Route path="/heroes" element={<HeroesPage />} />
         <Route path="/progress" element={<ProgressPage />} />
         <Route path="/deliverables" element={<DeliverablesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
