@@ -21,7 +21,7 @@ jobs:
       - run: npm run build
       - run: npm run deploy:dry
       - run: npm run smoke
-      - name: Local D1 + R2 deliverables E2E
+      - name: Local D1 + KV deliverables E2E
         shell: bash
         run: |
           set -euo pipefail
@@ -51,4 +51,4 @@ jobs:
           DELIVERABLE_ID=$(printf '%s' "$LIST" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const x=JSON.parse(s).deliverables;if(!Array.isArray(x)||x.length!==1)process.exit(2);process.stdout.write(x[0].id)})')
           curl -fsS "http://127.0.0.1:8788/api/deliverables/file/$DELIVERABLE_ID?keyId=$KEY_ID" -o /tmp/keycraft-e2e-roundtrip.png
           cmp /tmp/keycraft-e2e.png /tmp/keycraft-e2e-roundtrip.png
-          echo "Deliverables E2E passed: upload -> D1 registry -> R2 -> list -> file roundtrip."
+          echo "Deliverables E2E passed: upload -> D1 registry -> Workers KV -> list -> file roundtrip."
