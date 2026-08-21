@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "keycraft-5000",
-  "main": "worker/index.ts",
+  "main": "worker/index-kv.ts",
   "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
@@ -18,10 +18,10 @@
       "migrations_dir": "./migrations"
     }
   ],
-  "r2_buckets": [
+  "kv_namespaces": [
     {
-      "binding": "DELIVERABLES",
-      "bucket_name": "keycraft-5000-deliverables"
+      "binding": "DELIVERABLES_KV",
+      "id": "00000000000000000000000000000000"
     }
   ],
   "observability": {
