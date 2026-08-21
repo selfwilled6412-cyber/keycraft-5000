@@ -8,7 +8,7 @@ $branch = "agent/premium-game-ui-v2"
 $stagingWorker = "keycraft-5000-staging"
 $prodDb = "keycraft-5000-db"
 $stagingDb = "keycraft-5000-staging-db"
-$stagingBucket = "keycraft-5000-staging-deliverables"
+$stagingKvTitle = "keycraft-5000-staging-deliverables"
 $workersSubdomain = "selfwilled6412"
 $cloneDir = Join-Path $env:TEMP ("keycraft-premium-clone-" + [Guid]::NewGuid().ToString("N"))
 $seedFile = Join-Path $env:TEMP ("keycraft-minako-seed-" + [Guid]::NewGuid().ToString("N") + ".sql")
@@ -34,6 +34,13 @@ function QueryRows([string]$database, [string]$sql) {
     if ($item.results) { $rows += @($item.results) }
   }
   return @($rows)
+}
+
+function FindKvNamespace([string]$titleFragment) {
+  $raw = (& npx.cmd wrangler kv namespace list | Out-String)
+  if ($LASTEXITCODE -ne 0) { throw "Could not list KV namespaces" }
+  $items = @($raw | ConvertFrom-Json)
+  return $items | Where-Object { $_.title -eq $titleFragment -or $_.title -like "*$titleFragment*" } | Select-Object -First 1
 }
 
 try {
@@ -66,14 +73,16 @@ try {
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", "migrations/0001_initial_schema.sql", "-y")
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--file", "migrations/0002_deliverables.sql", "-y")
 
-    Write-Host "[5/12] Ensure private staging R2 deliverables bucket exists" -ForegroundColor Green
-    $r2List = (& npx.cmd wrangler r2 bucket list | Out-String)
-    if ($LASTEXITCODE -ne 0) { throw "Could not list R2 buckets" }
-    if ($r2List -notmatch [regex]::Escape($stagingBucket)) {
-      Run "npx.cmd" @("wrangler", "r2", "bucket", "create", $stagingBucket, "--location", "apac")
-    } else {
-      Write-Host "R2 bucket already exists: $stagingBucket" -ForegroundColor DarkGreen
+    Write-Host "[5/12] Ensure private staging KV deliverables namespace exists" -ForegroundColor Green
+    $kv = FindKvNamespace $stagingKvTitle
+    if (-not $kv) {
+      Run "npx.cmd" @("wrangler", "kv", "namespace", "create", $stagingKvTitle, "--binding", "DELIVERABLES_KV", "--update-config", "false")
+      $kv = FindKvNamespace $stagingKvTitle
     }
+    if (-not $kv) { throw "Staging KV namespace was not found after creation" }
+    $kvId = [string]$kv.id
+    if (-not $kvId) { throw "Could not determine staging KV namespace id" }
+    Write-Host ("KV namespace ready: " + $kv.title + " / " + $kvId) -ForegroundColor DarkGreen
 
     Write-Host "[6/12] Read minako only from production D1 (read-only queries)" -ForegroundColor Green
     $users = QueryRows $prodDb "SELECT key_id,nickname,created_at,last_seen_at FROM users WHERE lower(trim(nickname))='minako';"
@@ -113,7 +122,7 @@ try {
 {
   "`$schema": "./node_modules/wrangler/config-schema.json",
   "name": "$stagingWorker",
-  "main": "worker/index.ts",
+  "main": "worker/index-kv.ts",
   "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
@@ -131,10 +140,10 @@ try {
       "migrations_dir": "./migrations"
     }
   ],
-  "r2_buckets": [
+  "kv_namespaces": [
     {
-      "binding": "DELIVERABLES",
-      "bucket_name": "$stagingBucket"
+      "binding": "DELIVERABLES_KV",
+      "id": "$kvId"
     }
   ],
   "observability": { "enabled": true, "head_sampling_rate": 1 }
@@ -149,8 +158,10 @@ try {
     $verifySql = "SELECT u.key_id,u.nickname,COUNT(DISTINCT p.phrase_id) AS phrase_count,COUNT(DISTINCT mc.mission_id) AS mission_count,MAX(u.last_seen_at) AS last_seen_at FROM users u LEFT JOIN progress p ON p.key_id=u.key_id LEFT JOIN mission_completions mc ON mc.key_id=u.key_id WHERE lower(trim(u.nickname))='minako' GROUP BY u.key_id,u.nickname;"
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--command", $verifySql)
 
-    Write-Host "[11/12] Verify deliverables registry" -ForegroundColor Green
+    Write-Host "[11/12] Verify deliverables registry and KV binding" -ForegroundColor Green
     Run "npx.cmd" @("wrangler", "d1", "execute", $stagingDb, "--remote", "--command", "SELECT name FROM sqlite_master WHERE type='table' AND name='deliverables';")
+    $kvCheck = FindKvNamespace $stagingKvTitle
+    if (-not $kvCheck) { throw "KV namespace verification failed" }
 
     Write-Host "[12/12] HTTP check" -ForegroundColor Green
     $url = "https://$stagingWorker.$workersSubdomain.workers.dev"
@@ -162,10 +173,10 @@ try {
     }
 
     Write-Host ""
-    Write-Host "PREMIUM UI V2 + AUTO DELIVERABLES STAGING READY" -ForegroundColor Green
+    Write-Host "PREMIUM UI V2 + AUTO DELIVERABLES KV STAGING READY" -ForegroundColor Green
     Write-Host $url -ForegroundColor Yellow
-    Write-Host "Automatic PNG flow: MISSION CLEAR + CURRENT SETTLEMENT + DISTRICT COMPLETE + HERO UNLOCK -> private R2." -ForegroundColor Green
-    Write-Host "Only minako data was copied from production. Production Worker, D1 and R2 were not modified." -ForegroundColor Green
+    Write-Host "Automatic PNG flow: MISSION CLEAR + CURRENT SETTLEMENT + DISTRICT COMPLETE + HERO UNLOCK -> private Workers KV." -ForegroundColor Green
+    Write-Host "Only minako data was copied from production. Production Worker and D1 were not modified; no production KV namespace was touched." -ForegroundColor Green
   }
   finally { Pop-Location }
 }
