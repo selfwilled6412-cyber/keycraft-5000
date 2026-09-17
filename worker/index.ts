@@ -2,9 +2,19 @@ const KEY_ID_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 const MISSION_ID_PATTERN = /^m(\d{3})$/;
 const PHRASE_ID_PATTERN = /^p(\d{3})-(\d{2})$/;
 const KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const DELIVERABLE_EVENT_PATTERN = /^[a-z0-9:_-]{1,96}$/i;
+const MAX_DELIVERABLE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_GENRES = new Set([
   "食べ物", "動物", "ゲーム", "スポーツ", "音楽", "旅行", "乗り物", "科学", "宇宙", "パソコン", "自然", "ものづくり",
 ]);
+const DELIVERABLE_KINDS = new Set([
+  "current_settlement",
+  "mission_clear",
+  "district_complete",
+  "hero_unlock",
+]);
+
+type AppEnv = Env & { DELIVERABLES: R2Bucket };
 
 class HttpError extends Error {
   constructor(readonly status: number, message: string) {
@@ -41,6 +51,19 @@ interface ProgressRow {
 
 interface MissionCompletionRow {
   mission_id: string;
+}
+
+interface DeliverableRow {
+  id: string;
+  key_id: string;
+  kind: string;
+  event_key: string;
+  filename: string;
+  object_key: string;
+  content_type: string;
+  byte_size: number;
+  metadata_json: string;
+  created_at: string;
 }
 
 const json = (data: unknown, init: ResponseInit = {}): Response => {
@@ -129,7 +152,12 @@ function validateContentIds(phraseId: unknown, missionId: unknown): { phraseId: 
   return { phraseId, missionId };
 }
 
-async function createUser(env: Env): Promise<Response> {
+async function requireUser(env: AppEnv, keyId: string): Promise<void> {
+  const user = await env.DB.prepare("SELECT 1 AS found FROM users WHERE key_id = ?").bind(keyId).first<{ found: number }>();
+  if (!user) throw new HttpError(404, "KEY IDが見つかりません");
+}
+
+async function createUser(env: AppEnv): Promise<Response> {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const keyId = secureKeyId();
     const results = await env.DB.batch([
@@ -143,7 +171,7 @@ async function createUser(env: Env): Promise<Response> {
   throw new HttpError(503, "KEY IDを発行できませんでした。もう一度お試しください");
 }
 
-async function searchUsers(request: Request, env: Env): Promise<Response> {
+async function searchUsers(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const nickname = parseNickname(body.nickname);
@@ -169,7 +197,7 @@ async function searchUsers(request: Request, env: Env): Promise<Response> {
   return json({ matches });
 }
 
-async function getSession(request: Request, env: Env): Promise<Response> {
+async function getSession(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const keyId = parseKeyId(body.keyId);
@@ -241,7 +269,7 @@ const safelyParseMissKeys = (value: string): Record<string, number> => {
   }
 };
 
-async function updatePreferences(request: Request, env: Env): Promise<Response> {
+async function updatePreferences(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const keyId = parseKeyId(body.keyId);
@@ -263,7 +291,7 @@ async function updatePreferences(request: Request, env: Env): Promise<Response> 
   return json({ saved: true });
 }
 
-async function savePhrase(request: Request, env: Env): Promise<Response> {
+async function savePhrase(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const keyId = parseKeyId(body.keyId);
@@ -274,8 +302,7 @@ async function savePhrase(request: Request, env: Env): Promise<Response> {
   if (!Number.isInteger(keystrokes) || keystrokes < 0 || keystrokes > 10_000) throw new HttpError(400, "入力数が不正です");
   const missKeys = safelyParseMissKeys(JSON.stringify(body.missKeys ?? {}));
 
-  const user = await env.DB.prepare("SELECT 1 AS found FROM users WHERE key_id = ?").bind(keyId).first<{ found: number }>();
-  if (!user) throw new HttpError(404, "KEY IDが見つかりません");
+  await requireUser(env, keyId);
 
   const results = await env.DB.batch([
     env.DB.prepare("INSERT OR IGNORE INTO progress (key_id, phrase_id, mission_id, accuracy, keystrokes, miss_keys_json) VALUES (?, ?, ?, ?, ?, ?)")
@@ -296,21 +323,168 @@ async function savePhrase(request: Request, env: Env): Promise<Response> {
   });
 }
 
-async function handleApi(request: Request, env: Env): Promise<Response> {
+function parseDeliverableMetadata(value: FormDataEntryValue | null): string {
+  const raw = typeof value === "string" ? value : "{}";
+  if (raw.length > 4096) throw new HttpError(413, "成果物メタデータが大きすぎます");
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed)) throw new Error("metadata must be an object");
+    return JSON.stringify(parsed);
+  } catch {
+    throw new HttpError(400, "成果物メタデータが不正です");
+  }
+}
+
+function parseDeliverableKind(value: FormDataEntryValue | null): string {
+  const kind = typeof value === "string" ? value.trim() : "";
+  if (!DELIVERABLE_KINDS.has(kind)) throw new HttpError(400, "成果物の種類が不正です");
+  return kind;
+}
+
+function parseEventKey(value: FormDataEntryValue | null): string {
+  const eventKey = typeof value === "string" ? value.trim() : "";
+  if (!DELIVERABLE_EVENT_PATTERN.test(eventKey)) throw new HttpError(400, "成果物イベントIDが不正です");
+  return eventKey;
+}
+
+function parseFilename(value: FormDataEntryValue | null): string {
+  const filename = typeof value === "string" ? value.trim() : "";
+  if (!filename || filename.length > 160 || /[\r\n\\/]/.test(filename)) throw new HttpError(400, "成果物ファイル名が不正です");
+  return filename.endsWith(".png") ? filename : `${filename}.png`;
+}
+
+function safeObjectPart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 120) || "artifact";
+}
+
+async function saveDeliverable(request: Request, env: AppEnv): Promise<Response> {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_DELIVERABLE_BYTES + 32_768) {
+    throw new HttpError(413, "成果物PNGが大きすぎます");
+  }
+  if (!request.headers.get("content-type")?.includes("multipart/form-data")) {
+    throw new HttpError(415, "成果物はmultipart/form-dataで送信してください");
+  }
+
+  const form = await request.formData();
+  const keyId = parseKeyId(form.get("keyId"));
+  const kind = parseDeliverableKind(form.get("kind"));
+  const eventKey = parseEventKey(form.get("eventKey"));
+  const filename = parseFilename(form.get("filename"));
+  const metadataJson = parseDeliverableMetadata(form.get("metadata"));
+  const file = form.get("file");
+  if (!(file instanceof File)) throw new HttpError(400, "成果物PNGがありません");
+  if (file.type !== "image/png") throw new HttpError(415, "成果物はPNG形式で保存してください");
+  if (file.size < 1024 || file.size > MAX_DELIVERABLE_BYTES) throw new HttpError(413, "成果物PNGのサイズが不正です");
+
+  await requireUser(env, keyId);
+  const objectKey = `${keyId}/${kind}/${safeObjectPart(eventKey)}.png`;
+  await env.DELIVERABLES.put(objectKey, file.stream(), {
+    httpMetadata: { contentType: "image/png" },
+    customMetadata: { keyId, kind, eventKey },
+  });
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`
+    INSERT INTO deliverables (id, key_id, kind, event_key, filename, object_key, content_type, byte_size, metadata_json)
+    VALUES (?, ?, ?, ?, ?, ?, 'image/png', ?, ?)
+    ON CONFLICT(key_id, event_key) DO UPDATE SET
+      kind = excluded.kind,
+      filename = excluded.filename,
+      object_key = excluded.object_key,
+      content_type = excluded.content_type,
+      byte_size = excluded.byte_size,
+      metadata_json = excluded.metadata_json,
+      created_at = CURRENT_TIMESTAMP
+  `).bind(id, keyId, kind, eventKey, filename, objectKey, file.size, metadataJson).run();
+
+  const row = await env.DB.prepare(`
+    SELECT id, key_id, kind, event_key, filename, object_key, content_type, byte_size, metadata_json, created_at
+    FROM deliverables WHERE key_id = ? AND event_key = ?
+  `).bind(keyId, eventKey).first<DeliverableRow>();
+  if (!row) throw new HttpError(500, "成果物台帳を保存できませんでした");
+  return json({
+    saved: true,
+    deliverable: serializeDeliverable(row),
+  }, { status: 201 });
+}
+
+function serializeDeliverable(row: DeliverableRow) {
+  let metadata: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(row.metadata_json) as unknown;
+    if (isRecord(parsed)) metadata = parsed;
+  } catch {
+    metadata = {};
+  }
+  return {
+    id: row.id,
+    keyId: row.key_id,
+    kind: row.kind,
+    eventKey: row.event_key,
+    filename: row.filename,
+    contentType: row.content_type,
+    byteSize: Number(row.byte_size) || 0,
+    metadata,
+    createdAt: row.created_at,
+  };
+}
+
+async function listDeliverables(request: Request, env: AppEnv): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
+  const keyId = parseKeyId(body.keyId);
+  await requireUser(env, keyId);
+  const result = await env.DB.prepare(`
+    SELECT id, key_id, kind, event_key, filename, object_key, content_type, byte_size, metadata_json, created_at
+    FROM deliverables
+    WHERE key_id = ?
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT 500
+  `).bind(keyId).all<DeliverableRow>();
+  return json({ deliverables: (result.results ?? []).map(serializeDeliverable) });
+}
+
+async function getDeliverableFile(request: Request, env: AppEnv, id: string): Promise<Response> {
+  if (!id || id.length > 80) throw new HttpError(400, "成果物IDが不正です");
+  const url = new URL(request.url);
+  const keyId = parseKeyId(url.searchParams.get("keyId"));
+  const row = await env.DB.prepare(`
+    SELECT id, key_id, kind, event_key, filename, object_key, content_type, byte_size, metadata_json, created_at
+    FROM deliverables WHERE id = ? AND key_id = ?
+  `).bind(id, keyId).first<DeliverableRow>();
+  if (!row) throw new HttpError(404, "成果物が見つかりません");
+  const object = await env.DELIVERABLES.get(row.object_key);
+  if (!object) throw new HttpError(404, "成果物PNGが見つかりません");
+  const headers = new Headers();
+  headers.set("Content-Type", row.content_type || "image/png");
+  headers.set("Content-Length", String(object.size));
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Content-Type-Options", "nosniff");
+  const disposition = url.searchParams.get("download") === "1" ? "attachment" : "inline";
+  headers.set("Content-Disposition", `${disposition}; filename*=UTF-8''${encodeURIComponent(row.filename)}`);
+  return new Response(object.body, { headers });
+}
+
+async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === "/api/health" && request.method === "GET") {
-    return json({ ok: true, service: "keycraft-5000", contentVersion: 1 });
+    return json({ ok: true, service: "keycraft-5000", contentVersion: 2, deliverables: true });
   }
   if (pathname === "/api/users" && request.method === "POST") return createUser(env);
   if (pathname === "/api/users/search" && request.method === "POST") return searchUsers(request, env);
   if (pathname === "/api/session" && request.method === "POST") return getSession(request, env);
   if (pathname === "/api/preferences" && request.method === "PUT") return updatePreferences(request, env);
   if (pathname === "/api/progress/phrase" && request.method === "POST") return savePhrase(request, env);
+  if (pathname === "/api/deliverables" && request.method === "POST") return saveDeliverable(request, env);
+  if (pathname === "/api/deliverables/list" && request.method === "POST") return listDeliverables(request, env);
+  const fileMatch = /^\/api\/deliverables\/file\/([^/]+)$/.exec(pathname);
+  if (fileMatch && request.method === "GET") return getDeliverableFile(request, env, decodeURIComponent(fileMatch[1] ?? ""));
   return json({ error: "APIが見つかりません" }, { status: 404 });
 }
 
 export default {
-  async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: AppEnv, context: ExecutionContext): Promise<Response> {
     void context;
     try {
       const url = new URL(request.url);
@@ -322,4 +496,4 @@ export default {
       return json({ error: "処理中に問題が発生しました" }, { status: 500 });
     }
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<AppEnv>;
