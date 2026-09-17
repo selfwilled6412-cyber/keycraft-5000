@@ -18,6 +18,12 @@
       "migrations_dir": "./migrations"
     }
   ],
+  "kv_namespaces": [
+    {
+      "binding": "DELIVERABLES_KV",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
   "services": [
     {
       "binding": "SAI_COIN",
