@@ -1,4 +1,4 @@
-import app from './index-kv';
+import app from './index';
 import { deliverPendingSaiCoin, queueSaiCoinMission } from './sai-coin';
 
 interface ProgressInput {
@@ -48,7 +48,7 @@ export default {
     const url = new URL(request.url);
     const shouldSync = url.pathname === '/api/progress/phrase' && request.method === 'POST';
     const integrationRequest = shouldSync ? request.clone() : null;
-    const response = await app.fetch(request as Parameters<typeof app.fetch>[0], env as Parameters<typeof app.fetch>[1], context);
+    const response = await app.fetch(request as Parameters<typeof app.fetch>[0], env, context);
     const integrationResponse = integrationRequest ? response.clone() : null;
     if (integrationRequest && integrationResponse) {
       context.waitUntil(syncSaiCoin(integrationRequest, integrationResponse, env));
