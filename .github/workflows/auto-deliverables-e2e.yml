@@ -27,7 +27,7 @@ jobs:
       - run: npm run build
       - name: Install Chromium
         run: |
-          npm install --no-save --package-lock=false playwright@1.55.0
+          npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
       - name: Prepare local D1 at 19/20 phrases
         shell: bash
