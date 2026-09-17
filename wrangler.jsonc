@@ -20,8 +20,7 @@
   ],
   "kv_namespaces": [
     {
-      "binding": "DELIVERABLES_KV",
-      "id": "00000000000000000000000000000000"
+      "binding": "DELIVERABLES_KV"
     }
   ],
   "services": [
