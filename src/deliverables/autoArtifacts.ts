@@ -21,18 +21,25 @@ interface AutoArtifactInput {
   mission: Mission;
   completedMissionIdsBefore: string[];
   completedPhrasesAfter: number;
+  wantedEventKeys?: readonly string[];
 }
 
 const safeName = (value: string) => value.replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "PLAYER";
 
+const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
+  const cached = imageCache.get(src);
+  if (cached) return cached;
+  const loading = new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
     image.src = src;
   });
+  imageCache.set(src, loading);
+  return loading;
 }
 
 function makeCanvas() {
@@ -375,47 +382,55 @@ export async function createAutomaticMissionArtifacts(input: AutoArtifactInput):
   const player = safeName(input.nickname || input.keyId);
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const missionNo = String(input.mission.number).padStart(3, "0");
-  const artifacts: AutoArtifact[] = [];
+  const wanted = input.wantedEventKeys ? new Set(input.wantedEventKeys) : null;
+  const wants = (eventKey: string) => !wanted || wanted.has(eventKey);
+  const artifactJobs: Array<Promise<AutoArtifact>> = [];
 
-  const [settlementBlob, missionBlob] = await Promise.all([
-    makeSettlement(input, completedAfter, completedHere),
-    makeMissionClear(input, completedAfter),
-  ]);
-  artifacts.push({
-    kind: "current_settlement",
-    eventKey: "current-settlement",
-    filename: `KEYCRAFT_${player}_CURRENT_SETTLEMENT.png`,
-    metadata: { missionId: input.mission.id, missionNumber: input.mission.number, completedMissions: completedAfter.length, completedPhrases: input.completedPhrasesAfter, districtId: input.mission.districtId },
-    blob: settlementBlob,
-  });
-  artifacts.push({
-    kind: "mission_clear",
-    eventKey: `mission:${input.mission.id}`,
-    filename: `KEYCRAFT_${player}_${date}_MISSION${missionNo}_CLEAR.png`,
-    metadata: { missionId: input.mission.id, missionNumber: input.mission.number, title: input.mission.title, reward: input.mission.reward.name, districtId: input.mission.districtId },
-    blob: missionBlob,
-  });
+  if (wants("current-settlement")) {
+    artifactJobs.push(makeSettlement(input, completedAfter, completedHere).then((blob) => ({
+      kind: "current_settlement",
+      eventKey: "current-settlement",
+      filename: `KEYCRAFT_${player}_CURRENT_SETTLEMENT.png`,
+      metadata: { missionId: input.mission.id, missionNumber: input.mission.number, completedMissions: completedAfter.length, completedPhrases: input.completedPhrasesAfter, districtId: input.mission.districtId },
+      blob,
+    })));
+  }
 
-  if (completedHere === 10 && district) {
-    artifacts.push({
+  const missionEventKey = `mission:${input.mission.id}`;
+  if (wants(missionEventKey)) {
+    artifactJobs.push(makeMissionClear(input, completedAfter).then((blob) => ({
+      kind: "mission_clear",
+      eventKey: missionEventKey,
+      filename: `KEYCRAFT_${player}_${date}_MISSION${missionNo}_CLEAR.png`,
+      metadata: { missionId: input.mission.id, missionNumber: input.mission.number, title: input.mission.title, reward: input.mission.reward.name, districtId: input.mission.districtId },
+      blob,
+    })));
+  }
+
+  const districtEventKey = district ? `district:${district.id}` : "";
+  if (completedHere === 10 && district && wants(districtEventKey)) {
+    artifactJobs.push(makeDistrictComplete(input, completedAfter, district.name).then((blob) => ({
       kind: "district_complete",
-      eventKey: `district:${district.id}`,
+      eventKey: districtEventKey,
       filename: `KEYCRAFT_${player}_${date}_${district.id.toUpperCase()}_COMPLETE.png`,
       metadata: { districtId: district.id, districtName: district.name, completedMissions: completedAfter.length },
-      blob: await makeDistrictComplete(input, completedAfter, district.name),
-    });
+      blob,
+    })));
   }
 
   const newlyUnlocked = premiumHeroes.filter((hero) => hero.unlockMission === completedAfter.length);
   for (const hero of newlyUnlocked) {
-    artifacts.push({
-      kind: "hero_unlock",
-      eventKey: `hero:${hero.id}`,
-      filename: `KEYCRAFT_${player}_${date}_HERO_${hero.id.toUpperCase()}_UNLOCK.png`,
-      metadata: { heroId: hero.id, heroName: hero.name, rarity: hero.rarity, role: hero.role, unlockMission: hero.unlockMission },
-      blob: await makeHeroUnlock(input, hero, completedAfter),
-    });
+    const heroEventKey = `hero:${hero.id}`;
+    if (wants(heroEventKey)) {
+      artifactJobs.push(makeHeroUnlock(input, hero, completedAfter).then((blob) => ({
+        kind: "hero_unlock",
+        eventKey: heroEventKey,
+        filename: `KEYCRAFT_${player}_${date}_HERO_${hero.id.toUpperCase()}_UNLOCK.png`,
+        metadata: { heroId: hero.id, heroName: hero.name, rarity: hero.rarity, role: hero.role, unlockMission: hero.unlockMission },
+        blob,
+      })));
+    }
   }
 
-  return artifacts;
+  return Promise.all(artifactJobs);
 }

@@ -84,29 +84,35 @@ export function StoredDeliverablesShelf() {
         setRepairing(true);
         setRepairProgress({ done: 0, total });
         let done = 0;
-
-        for (const plan of plans) {
-          if (!active) return;
-          const mission = completedMissions[plan.missionIndex];
-          if (!mission) continue;
-          const completedBefore = completedMissions.slice(0, plan.missionIndex).map((item) => item.id);
-          const afterMissionIds = new Set(completedMissions.slice(0, plan.missionIndex + 1).map((item) => item.id));
-          const completedPhrasesAfter = session.progress.filter((item) => afterMissionIds.has(item.missionId)).length;
-          const generated = await createAutomaticMissionArtifacts({
-            keyId: session.keyId,
-            nickname: session.preferences.nickname ?? session.keyId,
-            mission,
-            completedMissionIdsBefore: completedBefore,
-            completedPhrasesAfter,
-          });
-          const wanted = new Set(plan.expectedKeys);
-          for (const artifact of generated.filter((item) => wanted.has(item.eventKey))) {
-            if (!active) return;
-            await uploadDeliverable({ keyId: session.keyId, ...artifact });
-            done += 1;
-            setRepairProgress({ done, total });
+        let nextPlan = 0;
+        const repairNext = async () => {
+          while (active) {
+            const plan = plans[nextPlan];
+            nextPlan += 1;
+            if (!plan) return;
+            const mission = completedMissions[plan.missionIndex];
+            if (!mission) continue;
+            const completedBefore = completedMissions.slice(0, plan.missionIndex).map((item) => item.id);
+            const afterMissionIds = new Set(completedMissions.slice(0, plan.missionIndex + 1).map((item) => item.id));
+            const completedPhrasesAfter = session.progress.filter((item) => afterMissionIds.has(item.missionId)).length;
+            const generated = await createAutomaticMissionArtifacts({
+              keyId: session.keyId,
+              nickname: session.preferences.nickname ?? session.keyId,
+              mission,
+              completedMissionIdsBefore: completedBefore,
+              completedPhrasesAfter,
+              wantedEventKeys: plan.expectedKeys,
+            });
+            for (const artifact of generated) {
+              if (!active) return;
+              await uploadDeliverable({ keyId: session.keyId, ...artifact });
+              done += 1;
+              setRepairProgress({ done, total });
+            }
           }
-        }
+        };
+
+        await Promise.all(Array.from({ length: Math.min(3, plans.length) }, repairNext));
 
         const refreshed = await fetchDeliverables(session.keyId);
         if (active) setItems(refreshed.deliverables);
