@@ -16,6 +16,8 @@ const formatBytes = (value: number) => value >= 1024 * 1024
   ? `${(value / (1024 * 1024)).toFixed(1)} MB`
   : `${Math.max(1, Math.round(value / 1024))} KB`;
 
+const DELIVERABLE_PAGE_SIZE = 24;
+
 export function StoredDeliverablesShelf() {
   const { session } = usePlayer();
   const [items, setItems] = useState<DeliverableRecord[]>([]);
@@ -23,9 +25,11 @@ export function StoredDeliverablesShelf() {
   const [repairing, setRepairing] = useState(false);
   const [repairProgress, setRepairProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(DELIVERABLE_PAGE_SIZE);
 
   useEffect(() => {
     if (!session) return;
+    setVisibleCount(DELIVERABLE_PAGE_SIZE);
     const query = new URLSearchParams(window.location.search);
     const visualReview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && query.get("visualReview") === "1";
     if (visualReview) return;
@@ -159,21 +163,32 @@ export function StoredDeliverablesShelf() {
       {!loading && !repairing && !error && items.length === 0 && <div className="stored-deliverables-state">次のMISSIONを完成すると、最初の成果物PNGがここへ自動保存されます。</div>}
 
       {items.length > 0 && (
-        <div className="stored-deliverables-grid">
-          {items.map((item) => (
-            <article key={item.id} className={`stored-deliverable-card kind-${item.kind}`}>
-              <div className="stored-deliverable-image">
-                <img src={deliverableFileUrl(session.keyId, item.id)} alt={item.filename} loading="lazy" />
-                <span>{kindLabels[item.kind]}</span>
-              </div>
-              <div className="stored-deliverable-copy">
-                <strong>{item.filename}</strong>
-                <small>{new Date(item.createdAt).toLocaleString("ja-JP")} · {formatBytes(item.byteSize)}</small>
-                <a href={deliverableFileUrl(session.keyId, item.id, true)} download={item.filename}>PNGをダウンロード</a>
-              </div>
-            </article>
-          ))}
-        </div>
+        <>
+          <div className="stored-deliverables-grid">
+            {items.slice(0, visibleCount).map((item) => (
+              <article key={item.id} className={`stored-deliverable-card kind-${item.kind}`}>
+                <div className="stored-deliverable-image">
+                  <img src={deliverableFileUrl(session.keyId, item.id)} alt={item.filename} loading="lazy" />
+                  <span>{kindLabels[item.kind]}</span>
+                </div>
+                <div className="stored-deliverable-copy">
+                  <strong>{item.filename}</strong>
+                  <small>{new Date(item.createdAt).toLocaleString("ja-JP")} · {formatBytes(item.byteSize)}</small>
+                  <a href={deliverableFileUrl(session.keyId, item.id, true)} download={item.filename}>PNGをダウンロード</a>
+                </div>
+              </article>
+            ))}
+          </div>
+          {visibleCount < items.length && (
+            <button
+              type="button"
+              className="stored-deliverables-more"
+              onClick={() => setVisibleCount((count) => Math.min(count + DELIVERABLE_PAGE_SIZE, items.length))}
+            >
+              さらに表示 <span>残り {items.length - visibleCount} 件</span>
+            </button>
+          )}
+        </>
       )}
     </section>
   );

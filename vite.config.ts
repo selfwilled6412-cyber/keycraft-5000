@@ -6,7 +6,18 @@ export default defineConfig({
   build: {
     target: "es2022",
     sourcemap: false,
-    chunkSizeWarningLimit: 1800,
+    // The generated 5,000-phrase catalog is intentionally isolated and cached as its own chunk.
+    chunkSizeWarningLimit: 1850,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalized = id.replace(/\\/g, "/");
+          if (normalized.endsWith("/src/content/generated/content.json")) return "catalog";
+          if (normalized.includes("/node_modules/react/") || normalized.includes("/node_modules/react-dom/") || normalized.includes("/node_modules/react-router")) return "react-vendor";
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port: 5173,
