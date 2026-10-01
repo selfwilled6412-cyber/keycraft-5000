@@ -16,6 +16,7 @@ const smokeAssets: Fetcher = {
 };
 const env = {
   ASSETS: smokeAssets,
+  SAI_COIN: smokeAssets,
   DB: {} as D1Database,
   DELIVERABLES_KV: {} as KVNamespace,
 } satisfies Env & { DELIVERABLES_KV: KVNamespace };

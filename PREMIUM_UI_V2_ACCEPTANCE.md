@@ -30,7 +30,7 @@ MISSIONの20フレーズ目がD1へ正常保存された後に、自動で:
 2. `CURRENT SETTLEMENT` PNGを最新状態へ更新する。
 3. 10MISSION区切りで該当DISTRICTが10/10になった場合、`DISTRICT COMPLETE` PNGを生成する。
 4. 英雄解放MISSIONに到達した場合、`HERO UNLOCK` PNGを生成する。
-5. PNGをCloudflare R2へ保存する。
+5. PNGをprivate Cloudflare Workers KVへ保存する。
 6. D1 `deliverables` 台帳へ種類・イベントID・ファイル名・サイズ・メタデータ・作成日時を記録する。
 7. 成果物ページの「自動納品庫」に自動表示する。
 
@@ -50,11 +50,11 @@ MISSIONの20フレーズ目がD1へ正常保存された後に、自動で:
 
 ## 5. Storage / privacy
 
-- PNG本体はprivate Cloudflare R2 bucketに保存する。
+- PNG本体はprivate Cloudflare Workers KV namespaceに保存する。
 - D1にはPNG本体を保存せず台帳情報のみ保存する。
 - ファイル参照はKEY IDと成果物IDの組み合わせでWorker API経由に限定する。
-- R2 bucketを公開Webサイトとして公開しない。
-- stagingはproductionとは別のD1 / R2 / Workerを使用する。
+- KV namespaceを公開せず、Worker APIだけから取得できるようにする。
+- stagingはproductionとは別のD1 / KV / Workerを使用する。
 
 ## 6. Verification gates
 
@@ -67,14 +67,14 @@ PRをproductionへ入れる前に最低限すべてPASSさせる。
 - production build
 - Wrangler dry-run
 - runtime smoke
-- Local D1 + R2 deliverables E2E:
+- Local D1 + KV deliverables E2E:
   - Worker起動
   - テスト利用者作成
   - PNG multipart upload
   - D1台帳登録
-  - R2保存
+  - KV保存
   - 一覧取得
-  - R2からPNG再取得
+  - KVからPNG再取得
   - 元ファイルとのbyte一致
 - Real-browser automatic deliverables E2E:
   - D1を19/20フレーズ状態に準備
@@ -82,15 +82,15 @@ PRをproductionへ入れる前に最低限すべてPASSさせる。
   - MISSION COMPLETE確定
   - ブラウザCanvasで自動PNG生成
   - CURRENT SETTLEMENT / MISSION CLEAR / HERO UNLOCKを自動保存
-  - D1台帳とR2から3 PNGを再取得
+  - D1台帳とKVから3 PNGを再取得
   - PNG signatureと十分なbyte sizeを検証
-  - 2026-08-20: PASS (`typed phrase 20 -> mission complete -> 3 PNGs -> D1 registry -> R2 -> PNG retrieval`)
+  - 2026-08-20: PASS (`typed phrase 20 -> mission complete -> 3 PNGs -> D1 registry -> KV -> PNG retrieval`)
 - Visual Review: 主要ゲーム画面と実PNG出力を実ブラウザで撮影
 - staging実ブラウザ確認
-- staging R2で自動保存 / 自動復元確認
+- staging KVで自動保存 / 自動復元確認
 
 ## 7. Production safety
 
 - PRは明示承認までDraft / unmergedを維持する。
-- production Worker / D1 / R2をstaging検証のために変更しない。
+- production Worker / D1 / KVをstaging検証のために変更しない。
 - stagingにはproduction D1から指定された検証利用者データだけをread-only SELECTでコピーする。

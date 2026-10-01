@@ -14,7 +14,22 @@ const DELIVERABLE_KINDS = new Set([
   "hero_unlock",
 ]);
 
-type AppEnv = Env & { DELIVERABLES: R2Bucket };
+export interface DeliverablesStore {
+  put(
+    key: string,
+    value: ReadableStream<Uint8Array> | ArrayBuffer | ArrayBufferView | string | Blob,
+    options?: {
+      httpMetadata?: { contentType?: string };
+      customMetadata?: Record<string, string>;
+    },
+  ): Promise<unknown>;
+  get(key: string): Promise<null | {
+    body: ReadableStream<Uint8Array>;
+    size: number;
+  }>;
+}
+
+export type AppEnv = Env & { DELIVERABLES: DeliverablesStore };
 
 class HttpError extends Error {
   constructor(readonly status: number, message: string) {

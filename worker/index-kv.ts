@@ -1,7 +1,6 @@
-import worker from "./index";
+import worker, { type AppEnv } from "./index";
 
 type KvEnv = Env & { DELIVERABLES_KV: KVNamespace };
-type LegacyEnv = Parameters<typeof worker.fetch>[1];
 
 type R2LikePutOptions = {
   httpMetadata?: { contentType?: string };
@@ -53,10 +52,10 @@ class KvBackedDeliverables {
 
 export default {
   async fetch(request: Request, env: KvEnv, context: ExecutionContext): Promise<Response> {
-    const adaptedEnv = {
+    const adaptedEnv: AppEnv = {
       ...env,
       DELIVERABLES: new KvBackedDeliverables(env.DELIVERABLES_KV),
-    } as unknown as LegacyEnv;
+    };
     return worker.fetch(request, adaptedEnv, context);
   },
 } satisfies ExportedHandler<KvEnv>;

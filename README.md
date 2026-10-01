@@ -19,6 +19,7 @@ KEY CRAFT 5000 は、一般ユーザー向けの無料タイピングゲーム�
 - UI: React 19 / TypeScript / Vite
 - API: Cloudflare Workers
 - データベース: Cloudflare D1
+- PNG成果物: private Cloudflare Workers KV + D1台帳
 - 配信: Workers Static Assets（`/api/*` のみWorkerを先に実行）
 - テスト: Vitest / Cloudflare Workers test pool
 - CI: GitHub Actions
@@ -96,6 +97,7 @@ SAI COIN連携が設定されている場合、MISSIONを20問クリアした後
 - API URL・APIキー・SAI COIN側ミッションIDはCloudflare Worker Secretで保持します。
 - SAI COINが一時的に利用できない場合もKEY CRAFTの進捗保存は成功します。
 - 未送信イベントはD1の `sai_coin_outbox` に保持し、次回の進捗保存時に再送します。
+- 一時障害は最大5回まで再送し、SAI COIN側に利用者が存在しない場合は後続イベントを塞がず再試行を停止します。
 - SAI COIN側でその日の同一ミッションが達成済みなら `daily_already` として終端し、重複付与や無限再送を防ぎます。
 
 連携に必要なWorker Secretは `SAI_COIN_API_URL`、`SAI_COIN_API_KEY`、`SAI_COIN_MISSION_ID` の3つです。Secret未設定時は連携処理だけが無効になり、KEY CRAFT本体は従来どおり動作します。

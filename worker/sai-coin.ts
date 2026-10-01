@@ -21,6 +21,8 @@ interface SaiCoinResponse {
   message?: string;
 }
 
+const MAX_DELIVERY_ATTEMPTS = 5;
+
 interface IntegrationConfig {
   apiUrl: string;
   apiKey: string;
@@ -103,8 +105,8 @@ async function sendToSaiCoin(
 }
 
 async function pendingCount(env: Env, keyId: string): Promise<number> {
-  const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM sai_coin_outbox WHERE key_id = ? AND status = 'pending'")
-    .bind(keyId)
+  const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM sai_coin_outbox WHERE key_id = ? AND status = 'pending' AND attempts < ?")
+    .bind(keyId, MAX_DELIVERY_ATTEMPTS)
     .first<number>('count');
   return Number(count ?? 0);
 }
@@ -115,10 +117,20 @@ async function markTerminal(env: Env, eventId: string, status: 'sent' | 'daily_a
     .run();
 }
 
-async function markFailure(env: Env, eventId: string, message: string): Promise<void> {
-  await env.DB.prepare("UPDATE sai_coin_outbox SET attempts = attempts + 1, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE event_id = ?")
-    .bind(message.slice(0, 240), eventId)
+async function markFailure(env: Env, eventId: string, message: string, terminal = false): Promise<void> {
+  const attempts = terminal ? MAX_DELIVERY_ATTEMPTS : 1;
+  const attemptUpdate = terminal ? "MAX(attempts, ?)" : "MIN(attempts + ?, ?)";
+  await env.DB.prepare(`UPDATE sai_coin_outbox SET attempts = ${attemptUpdate}, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE event_id = ?`)
+    .bind(...(terminal ? [attempts] : [attempts, MAX_DELIVERY_ATTEMPTS]), message.slice(0, 240), eventId)
     .run();
+}
+
+export function saiCoinFailureDisposition(status: number, data: Pick<SaiCoinResponse, 'error' | 'message'>): 'terminal' | 'retry' {
+  const message = String(data.message ?? '').trim();
+  if (status === 404 && (data.error === 'user_not_found' || message.includes('利用者が見つかりません'))) {
+    return 'terminal';
+  }
+  return 'retry';
 }
 
 export async function queueSaiCoinMission(env: Env, keyId: string, keycraftMissionId: string): Promise<string> {
@@ -148,8 +160,8 @@ export async function deliverPendingSaiCoin(env: Env, keyId: string, fetcher: ty
     };
   }
 
-  const rows = await env.DB.prepare("SELECT event_id, attempts FROM sai_coin_outbox WHERE key_id = ? AND status = 'pending' ORDER BY created_at LIMIT 3")
-    .bind(keyId)
+  const rows = await env.DB.prepare("SELECT event_id, attempts FROM sai_coin_outbox WHERE key_id = ? AND status = 'pending' AND attempts < ? ORDER BY created_at LIMIT 3")
+    .bind(keyId, MAX_DELIVERY_ATTEMPTS)
     .all<OutboxRow>();
 
   let attempted = 0;
@@ -181,8 +193,9 @@ export async function deliverPendingSaiCoin(env: Env, keyId: string, fetcher: ty
       }
       const compactRaw = raw.replace(/\s+/g, ' ').trim().slice(0, 120);
       lastError = data.message || data.error || `SAI COIN HTTP ${response.status}${compactRaw ? `: ${compactRaw}` : ''}`;
-      await markFailure(env, row.event_id, lastError);
-      break;
+      const disposition = saiCoinFailureDisposition(response.status, data);
+      await markFailure(env, row.event_id, lastError, disposition === 'terminal');
+      if (disposition === 'retry') break;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
       await markFailure(env, row.event_id, lastError);
