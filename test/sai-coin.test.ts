@@ -25,6 +25,7 @@ describe('SAI COIN integration safety', () => {
 
   it('stops retrying a missing SAI COIN user but keeps transient failures retryable', () => {
     expect(saiCoinFailureDisposition(404, { error: 'user_not_found', message: '利用者が見つかりません。' })).toBe('terminal');
+    expect(saiCoinFailureDisposition(400, { message: '利用者が見つかりません。' })).toBe('terminal');
     expect(saiCoinFailureDisposition(503, { error: 'temporarily_unavailable' })).toBe('retry');
   });
 });

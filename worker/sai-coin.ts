@@ -127,7 +127,7 @@ async function markFailure(env: Env, eventId: string, message: string, terminal 
 
 export function saiCoinFailureDisposition(status: number, data: Pick<SaiCoinResponse, 'error' | 'message'>): 'terminal' | 'retry' {
   const message = String(data.message ?? '').trim();
-  if (status === 404 && (data.error === 'user_not_found' || message.includes('利用者が見つかりません'))) {
+  if (status >= 400 && status < 500 && (data.error === 'user_not_found' || message.includes('利用者が見つかりません'))) {
     return 'terminal';
   }
   return 'retry';
