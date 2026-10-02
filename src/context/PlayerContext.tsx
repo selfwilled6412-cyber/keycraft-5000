@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createPlayer, fetchSession, postPhraseProgress, putPreferences, searchPlayersByName, type SavePhraseInput, type SavePhraseResult } from "../api/client";
+import { createPlayer, fetchSession, loginPlayer, postPhraseProgress, putPin, putPreferences, searchPlayersByName, type SavePhraseInput, type SavePhraseResult } from "../api/client";
 import { catalog } from "../content/catalog";
 import type { PlayerPreferences, PlayerSession } from "../content/types";
 
@@ -9,10 +9,11 @@ interface PlayerContextValue {
   session: PlayerSession | null;
   loading: boolean;
   error: string | null;
-  startNew: (nickname: string) => Promise<PlayerSession>;
+  startNew: (nickname: string, pin: string) => Promise<PlayerSession>;
   continueWith: (keyId: string) => Promise<PlayerSession>;
   savePhrase: (input: Omit<SavePhraseInput, "keyId">) => Promise<SavePhraseResult>;
   savePreferences: (preferences: PlayerPreferences) => Promise<void>;
+  savePin: (pin: string) => Promise<void>;
   signOut: () => void;
   clearError: () => void;
 }
@@ -24,6 +25,7 @@ function buildVisualReviewSession(): PlayerSession {
   const completedMissions = catalog.missions.slice(0, 17);
   return {
     keyId: "V2REVIEW",
+    hasPin: true,
     preferences: { assistMode: "beginner", genres: [], nickname: "minako" },
     progress: completedPhrases.map((phrase, index) => ({
       phraseId: phrase.id,
@@ -77,7 +79,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           const { matches } = await searchPlayersByName("minako");
           const minako = matches[0];
           if (minako) {
-            await continueWith(minako.keyId);
+            const { keyId } = await loginPlayer(minako.accountRef);
+            await continueWith(keyId);
             return;
           }
         } catch {
@@ -100,19 +103,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     void bootstrap();
   }, [continueWith]);
 
-  const startNew = useCallback(async (nickname: string) => {
+  const startNew = useCallback(async (nickname: string, pin: string) => {
     const name = nickname.trim();
     if (!name) throw new Error("利用者名を入力してください");
     setLoading(true);
     setError(null);
     try {
-      const { keyId } = await createPlayer();
+      const { keyId } = await createPlayer(name, pin);
       const loaded = await continueWith(keyId);
-      const preferences = { ...loaded.preferences, nickname: name };
-      await putPreferences({ keyId, ...preferences });
-      const namedSession = { ...loaded, preferences };
-      setSession(namedSession);
-      return namedSession;
+      setSession(loaded);
+      return loaded;
     } finally {
       setLoading(false);
     }
@@ -140,6 +140,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setSession((current) => current ? { ...current, preferences } : current);
   }, [session]);
 
+  const savePin = useCallback(async (pin: string) => {
+    if (!session) throw new Error("KEY IDがありません");
+    await putPin(session.keyId, pin);
+    setSession((current) => current ? { ...current, hasPin: true } : current);
+  }, [session]);
+
   const signOut = useCallback(() => {
     window.localStorage.removeItem(LAST_KEY_ID);
     setSession(null);
@@ -154,9 +160,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     continueWith,
     savePhrase,
     savePreferences,
+    savePin,
     signOut,
     clearError: () => setError(null),
-  }), [session, loading, error, startNew, continueWith, savePhrase, savePreferences, signOut]);
+  }), [session, loading, error, startNew, continueWith, savePhrase, savePreferences, savePin, signOut]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }

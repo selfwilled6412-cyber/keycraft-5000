@@ -18,9 +18,13 @@ export function missionPhraseCount(missionId: string, progress: PhraseProgress[]
   return progress.filter((item) => item.missionId === missionId).length;
 }
 
-export function nextMission(catalog: ContentCatalog, completedMissionIds: string[], genres: string[]): Mission {
+export function nextIncompleteMission(catalog: ContentCatalog, completedMissionIds: string[], genres: string[]): Mission | null {
   const available = catalog.missions.filter((mission) => !completedMissionIds.includes(mission.id) && isMissionAvailable(mission, completedMissionIds));
-  return available.find((mission) => genres.includes(mission.genre)) ?? available[0] ?? catalog.missions[0]!;
+  return available.find((mission) => genres.includes(mission.genre)) ?? available[0] ?? null;
+}
+
+export function nextMission(catalog: ContentCatalog, completedMissionIds: string[], genres: string[]): Mission {
+  return nextIncompleteMission(catalog, completedMissionIds, genres) ?? catalog.missions[0]!;
 }
 
 export function completedDistrictCount(catalog: ContentCatalog, completedMissionIds: string[]): number {

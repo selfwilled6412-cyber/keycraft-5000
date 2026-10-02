@@ -255,7 +255,7 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
   ctx.fillText(`${input.nickname} の極寒都市`, 72, 170);
   ctx.fillStyle = "#9db3c4";
   ctx.font = "600 22px sans-serif";
-  ctx.fillText(`${input.districtName} / DISTRICT ${String(Math.floor(input.completedMissions / 10) + 1).padStart(2, "0")}`, 76, 210);
+  ctx.fillText(`${input.districtName} / DISTRICT ${String(Math.min(25, Math.floor(input.completedMissions / 10) + 1)).padStart(2, "0")}`, 76, 210);
 
   ctx.fillStyle = "#f4b942";
   ctx.font = "900 122px sans-serif";

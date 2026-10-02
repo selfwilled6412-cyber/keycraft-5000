@@ -310,6 +310,11 @@
   box-shadow: 0 26px 70px rgba(0,0,0,.62), 0 0 0 2px #07111b;
 }
 
+.recording-badge.practice {
+  border-color: #4ab8de;
+  color: #8ee7ff;
+}
+
 .complete-card h1,
 .complete-card p {
   color: #fff;

@@ -1,9 +1,14 @@
 import { premiumHeroes } from "../content/premiumAssets";
+import { useNavigate } from "react-router-dom";
+import { catalog } from "../content/catalog";
 import { usePlayer } from "../context/PlayerContext";
+import { nextIncompleteMission } from "../game/progress";
 
 export function HeroesPage() {
   const { session } = usePlayer();
+  const navigate = useNavigate();
   const completedMissions = session?.completedMissionIds.length ?? 0;
+  const next = session ? nextIncompleteMission(catalog, session.completedMissionIds, session.preferences.genres) : null;
 
   return (
     <div className="premium-page premium-heroes-page">
@@ -33,7 +38,7 @@ export function HeroesPage() {
         })}
       </section>
 
-      <div className="premium-recruit-banner"><div><span>RECRUITMENT</span><strong>次の仲間まであと {Math.max(0, (premiumHeroes.find((hero) => completedMissions < hero.unlockMission)?.unlockMission ?? completedMissions) - completedMissions)} MISSION</strong></div><button type="button">英雄募集</button></div>
+      <div className="premium-recruit-banner"><div><span>RECRUITMENT</span><strong>{next ? `次の仲間まであと ${Math.max(0, (premiumHeroes.find((hero) => completedMissions < hero.unlockMission)?.unlockMission ?? completedMissions) - completedMissions)} MISSION` : "全英雄が加入しました！"}</strong></div><button type="button" onClick={() => navigate(next ? `/play?mission=${next.id}` : "/complete")}>{next ? "MISSIONへ" : "完成記録"}</button></div>
     </div>
   );
 }

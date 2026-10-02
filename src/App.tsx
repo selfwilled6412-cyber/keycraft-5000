@@ -9,6 +9,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { GrowthDemoPage } from "./pages/GrowthDemoPage";
 import { DeliverablesPage } from "./pages/DeliverablesPage";
 import { HeroesPage } from "./pages/HeroesPage";
+import { CompletionPage } from "./pages/CompletionPage";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/progress" element={<ProgressPage />} />
         <Route path="/deliverables" element={<DeliverablesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/complete" element={<CompletionPage />} />
         <Route path="/demo-growth" element={<GrowthDemoPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

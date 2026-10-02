@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "keycraft-5000-test",
   "main": "worker/index.ts",
-  "compatibility_date": "2026-08-17",
+  "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
     {

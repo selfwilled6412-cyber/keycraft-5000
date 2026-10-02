@@ -68,6 +68,12 @@
   background: #fff9f3;
 }
 
+.player-match-list > button.selected {
+  border-color: #ed6a45;
+  background: #fff4e8;
+  box-shadow: 0 0 0 2px rgb(237 106 69 / 12%);
+}
+
 .player-match-list > button:disabled {
   opacity: .6;
   cursor: wait;
@@ -124,6 +130,30 @@
   color: #7b868c;
   font-size: 10px;
   line-height: 1.7;
+}
+
+.lookup-pin-form {
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid #edb994;
+  background: #fff9f3;
+}
+
+.lookup-new-player {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px;
+  border: 1px dashed #7591a3;
+  background: #f4f8fa;
+  color: #17344d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lookup-new-player:hover:not(:disabled) {
+  border-color: #ed6a45;
+  color: #c8472c;
 }
 
 @media (max-width: 620px) {

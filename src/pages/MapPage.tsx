@@ -61,7 +61,7 @@ export function MapPage() {
                     const count = missionPhraseCount(mission.id, session.progress);
                     const style = { left: `${mission.coordinates.x}%`, top: `${mission.coordinates.y}%` };
                     return available ? (
-                      <Link key={mission.id} className={`map-node ${complete ? "complete" : "available"}`} to={`/play?mission=${mission.id}`} style={style} aria-label={`${mission.title} ${complete ? "完成" : `${count}/20`}`}>
+                      <Link key={mission.id} className={`map-node ${complete ? "complete" : "available"}`} to={`/play?mission=${mission.id}${complete ? "&practice=1" : ""}`} style={style} aria-label={`${mission.title} ${complete ? "練習する" : `${count}/20`}`}>
                         <RewardIcon id={mission.reward.id} kind={mission.reward.kind} locked={!complete} size={48} />
                         <span>{mission.number}</span>
                       </Link>

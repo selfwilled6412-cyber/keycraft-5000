@@ -14,19 +14,25 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   return data;
 }
 
-export async function createPlayer(): Promise<{ keyId: string }> {
-  return apiRequest("/api/users", { method: "POST", body: "{}" });
+export async function createPlayer(nickname: string, pin: string): Promise<{ keyId: string }> {
+  return apiRequest("/api/users", { method: "POST", body: JSON.stringify({ nickname: nickname.trim(), pin }) });
 }
 
 export interface PlayerLookupMatch {
-  keyId: string;
+  accountRef: string;
+  keySuffix: string;
   nickname: string;
+  hasPin: boolean;
   completedPhrases: number;
   completedMissions: number;
 }
 
 export async function searchPlayersByName(nickname: string): Promise<{ matches: PlayerLookupMatch[] }> {
   return apiRequest("/api/users/search", { method: "POST", body: JSON.stringify({ nickname: nickname.trim() }) });
+}
+
+export async function loginPlayer(accountRef: string, pin?: string): Promise<{ keyId: string; legacy: boolean }> {
+  return apiRequest("/api/users/login", { method: "POST", body: JSON.stringify({ accountRef, pin }) });
 }
 
 export async function fetchSession(keyId: string): Promise<PlayerSession> {
@@ -40,6 +46,10 @@ export async function putPreferences(input: {
   nickname: string | null;
 }): Promise<{ saved: boolean }> {
   return apiRequest("/api/preferences", { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function putPin(keyId: string, pin: string): Promise<{ saved: boolean }> {
+  return apiRequest("/api/users/pin", { method: "PUT", body: JSON.stringify({ keyId, pin }) });
 }
 
 export interface SavePhraseInput {

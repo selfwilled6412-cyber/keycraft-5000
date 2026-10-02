@@ -11,11 +11,14 @@ const modes: Array<{ id: AssistMode; title: string; description: string; feature
 ];
 
 export function SettingsPage() {
-  const { session, savePreferences, signOut } = usePlayer();
+  const { session, savePreferences, savePin, signOut } = usePlayer();
   const [mode, setMode] = useState<AssistMode>(session?.preferences.assistMode ?? "beginner");
   const [genres, setGenres] = useState<string[]>(session?.preferences.genres ?? []);
   const [nickname, setNickname] = useState(session?.preferences.nickname ?? "");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [pin, setPinValue] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinStatus, setPinStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     if (!session) return;
@@ -42,6 +45,22 @@ export function SettingsPage() {
     }
   };
 
+  const handlePinSave = async () => {
+    if (!/^\d{4,8}$/.test(pin) || pin !== pinConfirm) {
+      setPinStatus("error");
+      return;
+    }
+    setPinStatus("saving");
+    try {
+      await savePin(pin);
+      setPinValue("");
+      setPinConfirm("");
+      setPinStatus("saved");
+    } catch {
+      setPinStatus("error");
+    }
+  };
+
   return (
     <div className="page settings-page section-pad">
       <header className="page-heading"><div><p className="eyebrow">MAKE IT YOURS</p><h1>設定</h1><p>見え方と好きなジャンルを、自分にちょうどよく整えます。</p></div></header>
@@ -60,6 +79,22 @@ export function SettingsPage() {
           <header><span>03</span><div><h2>プレイヤー情報</h2><p>共有PCでは、この名前を入力して自分の続きへ戻れます。本名でなくニックネームでもOKです。</p></div></header>
           <div><label htmlFor="nickname">利用者名（名前・ニックネーム） <small>24文字まで</small></label><input id="nickname" value={nickname} maxLength={24} onChange={(event) => setNickname(event.target.value)} placeholder="例：ゆうき" /></div>
           <div className="key-id-setting"><span>KEY ID</span><strong>{session.keyId}</strong><small>名前で見つからない場合の予備IDです。公開場所への投稿は避けてください。</small></div>
+        </section>
+
+        <section className="settings-section panel pin-settings">
+          <header><span>04</span><div><h2>アカウントPIN</h2><p>名前で利用者を切り替えるとき、ほかの人に進み具合を開かれないよう保護します。</p></div><b>{session.hasPin ? "設定済み" : "未設定"}</b></header>
+          {session.hasPin ? (
+            <div className="pin-ready"><strong>PINで保護されています ✓</strong><p>PINを忘れた場合は、上のKEY IDを使ってログインできます。KEY IDは復旧用として安全な場所に保管してください。</p></div>
+          ) : (
+            <div className="pin-setup-fields">
+              <label htmlFor="settings-pin">新しいPIN <small>4〜8桁の数字</small></label>
+              <input id="settings-pin" type="password" inputMode="numeric" autoComplete="new-password" value={pin} onChange={(event) => { setPinValue(event.target.value.replace(/\D/g, "").slice(0, 8)); setPinStatus("idle"); }} placeholder="例：6412" />
+              <label htmlFor="settings-pin-confirm">PINをもう一度</label>
+              <input id="settings-pin-confirm" type="password" inputMode="numeric" autoComplete="new-password" value={pinConfirm} onChange={(event) => { setPinConfirm(event.target.value.replace(/\D/g, "").slice(0, 8)); setPinStatus("idle"); }} placeholder="確認用PIN" />
+              <button className="button secondary" type="button" onClick={() => void handlePinSave()} disabled={pinStatus === "saving" || !/^\d{4,8}$/.test(pin) || pin !== pinConfirm}>{pinStatus === "saving" ? "PINを保存中…" : pinStatus === "saved" ? "PINを設定しました ✓" : "PINを設定する"}</button>
+              {pinStatus === "error" && <span className="form-error" role="alert">PINを確認して、もう一度お試しください。</span>}
+            </div>
+          )}
         </section>
 
         <div className="settings-actions"><button className="button primary large" type="submit" disabled={status === "saving"}>{status === "saving" ? "保存中…" : status === "saved" ? "保存しました ✓" : "設定を保存する"}</button>{status === "error" && <span role="alert">保存できませんでした。通信を確認してください。</span>}</div>

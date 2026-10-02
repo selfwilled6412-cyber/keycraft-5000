@@ -11,7 +11,7 @@ import type { Mission, Phrase } from "../content/types";
 import { calculateAccuracy, RomanizationMatcher, type TypingSnapshot } from "../core/typing";
 import { createAutomaticMissionArtifacts } from "../deliverables/autoArtifacts";
 import { usePlayer } from "../context/PlayerContext";
-import { isMissionAvailable, nextMission } from "../game/progress";
+import { isMissionAvailable, nextIncompleteMission } from "../game/progress";
 import { createTypingVideoRecorder, type TypingVideoRecorder } from "../game/typingVideoRecorder";
 
 const initialSnapshot: TypingSnapshot = { completed: false, nextKeys: [], tokenProgress: 0, typed: "", misses: 0, keystrokes: 0, missKeys: {} };
@@ -23,14 +23,17 @@ export function PlayPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const requestedMission = params.get("mission");
+  const practiceRequested = params.get("practice") === "1";
   const mission = useMemo<Mission>(() => {
     const requested = catalog.missions.find((item) => item.id === requestedMission);
     if (session && requested && isMissionAvailable(requested, session.completedMissionIds)) return requested;
-    return session ? nextMission(catalog, session.completedMissionIds, session.preferences.genres) : catalog.missions[0]!;
+    return session ? nextIncompleteMission(catalog, session.completedMissionIds, session.preferences.genres) ?? catalog.missions[catalog.missions.length - 1]! : catalog.missions[0]!;
   }, [requestedMission, session]);
   const phrases = phrasesByMission.get(mission.id) ?? [];
+  const missionWasAlreadyCompleted = session?.completedMissionIds.includes(mission.id) ?? false;
+  const isPractice = practiceRequested && missionWasAlreadyCompleted;
   const savedIds = useMemo(() => new Set(session?.progress.map((item) => item.phraseId) ?? []), [session?.progress]);
-  const firstIncomplete = Math.max(0, phrases.findIndex((phrase) => !savedIds.has(phrase.id)));
+  const firstIncomplete = isPractice ? 0 : Math.max(0, phrases.findIndex((phrase) => !savedIds.has(phrase.id)));
   const [phraseIndex, setPhraseIndex] = useState(firstIncomplete === -1 ? 19 : firstIncomplete);
   const phrase = phrases[phraseIndex] ?? phrases[0];
   const matcherRef = useRef<RomanizationMatcher | null>(null);
@@ -41,9 +44,10 @@ export function PlayPage() {
   const [feedback, setFeedback] = useState<"ready" | "miss" | "saved" | "error">("ready");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [missionComplete, setMissionComplete] = useState(session?.completedMissionIds.includes(mission.id) ?? false);
+  const [missionComplete, setMissionComplete] = useState(isPractice ? false : missionWasAlreadyCompleted);
+  const [wasCompleteOnOpen, setWasCompleteOnOpen] = useState(missionWasAlreadyCompleted);
   const [switchingPlayer, setSwitchingPlayer] = useState(false);
-  const [recordingStatus, setRecordingStatus] = useState<"starting" | "recording" | "saved" | "unsupported">("starting");
+  const [recordingStatus, setRecordingStatus] = useState<"starting" | "recording" | "saved" | "unsupported" | "practice">("starting");
   const [artifactStatus, setArtifactStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [artifactCount, setArtifactCount] = useState(0);
   const initializedScopeRef = useRef("");
@@ -58,25 +62,43 @@ export function PlayPage() {
   }, []);
 
   useEffect(() => {
-    const scope = `${session?.keyId ?? "guest"}:${mission.id}`;
+    if (!session) return;
+    const requested = catalog.missions.find((item) => item.id === requestedMission);
+    if (!requested && !nextIncompleteMission(catalog, session.completedMissionIds, session.preferences.genres)) {
+      void navigate("/complete", { replace: true });
+      return;
+    }
+    if (!requested || !isMissionAvailable(requested, session.completedMissionIds)) {
+      void navigate(`/play?mission=${mission.id}`, { replace: true });
+    }
+  }, [mission.id, navigate, requestedMission, session]);
+
+  useEffect(() => {
+    const scope = `${session?.keyId ?? "guest"}:${mission.id}:${isPractice ? "practice" : "progress"}`;
     if (initializedScopeRef.current === scope) return;
     initializedScopeRef.current = scope;
-    const newIndex = phrases.findIndex((item) => !savedIds.has(item.id));
+    const newIndex = isPractice ? 0 : phrases.findIndex((item) => !savedIds.has(item.id));
     const nextIndex = newIndex === -1 ? 19 : newIndex;
     setPhraseIndex(nextIndex);
-    setMissionComplete(session?.completedMissionIds.includes(mission.id) ?? false);
+    const alreadyComplete = session?.completedMissionIds.includes(mission.id) ?? false;
+    setWasCompleteOnOpen(alreadyComplete);
+    setMissionComplete(isPractice ? false : alreadyComplete);
     setArtifactStatus("idle");
     setArtifactCount(0);
     artifactMissionRef.current = null;
     resetPhrase(phrases[nextIndex]);
-  }, [mission.id, phrases, resetPhrase, savedIds, session?.completedMissionIds, session?.keyId]);
+  }, [isPractice, mission.id, phrases, resetPhrase, savedIds, session?.completedMissionIds, session?.keyId]);
 
   useEffect(() => {
     resetPhrase(phrase);
   }, [phrase?.id, resetPhrase]);
 
   useEffect(() => {
-    if (!session || !phrase || missionComplete) return;
+    if (!session || phrases.length === 0 || isPractice || wasCompleteOnOpen) {
+      recorderRef.current?.cancel();
+      setRecordingStatus(isPractice ? "practice" : "unsupported");
+      return;
+    }
     recorderRef.current?.cancel();
     const recorder = createTypingVideoRecorder();
     recorderRef.current = recorder;
@@ -87,14 +109,14 @@ export function PlayPage() {
     }
     setRecordingStatus(recorder.start() ? "recording" : "unsupported");
     return () => recorder.cancel();
-  }, [mission.id, session?.keyId]);
+  }, [isPractice, mission.id, phrases.length, session?.keyId, wasCompleteOnOpen]);
 
   const completedBefore = session?.progress.filter((item) => item.missionId === mission.id).length ?? 0;
-  const missionProgress = Math.min(20, Math.max(completedBefore, phraseIndex));
+  const missionProgress = isPractice ? (missionComplete ? 20 : phraseIndex) : Math.min(20, Math.max(completedBefore, phraseIndex));
   const accuracy = calculateAccuracy(snapshot.keystrokes, snapshot.misses);
 
   useEffect(() => {
-    if (!session || !phrase) return;
+    if (!session || !phrase || isPractice) return;
     recorderRef.current?.draw({
       mission,
       phrase,
@@ -107,7 +129,7 @@ export function PlayPage() {
       completed: missionComplete,
       districtName: districtById.get(mission.districtId)?.name,
     });
-  }, [accuracy, mission, missionComplete, missionProgress, phrase, phraseIndex, session, snapshot.keystrokes, snapshot.misses, snapshot.typed]);
+  }, [accuracy, isPractice, mission, missionComplete, missionProgress, phrase, phraseIndex, session, snapshot.keystrokes, snapshot.misses, snapshot.typed]);
 
   const finishMissionVideo = useCallback(async (result: TypingSnapshot) => {
     if (!session || !phrase || recordedMissionRef.current === mission.id) return;
@@ -178,6 +200,15 @@ export function PlayPage() {
     setSaving(true);
     setSaveError(null);
     try {
+      if (isPractice) {
+        setFeedback("saved");
+        if (phraseIndex >= phrases.length - 1) {
+          setMissionComplete(true);
+        } else {
+          window.setTimeout(() => setPhraseIndex((current) => Math.min(phrases.length - 1, current + 1)), 260);
+        }
+        return;
+      }
       const response = await savePhrase({
         phraseId: phrase.id,
         missionId: mission.id,
@@ -199,7 +230,15 @@ export function PlayPage() {
     } finally {
       setSaving(false);
     }
-  }, [finishMissionVideo, mission.id, phrase, saveAutomaticArtifacts, savePhrase, saving, session]);
+  }, [finishMissionVideo, isPractice, mission.id, phrase, phraseIndex, phrases.length, saveAutomaticArtifacts, savePhrase, saving, session]);
+
+  const restartPractice = () => {
+    setPhraseIndex(0);
+    setMissionComplete(false);
+    setFeedback("ready");
+    setSaveError(null);
+    resetPhrase(phrases[0]);
+  };
 
   const handlePlayerSwitch = async (keyId: string) => {
     recorderRef.current?.cancel();
@@ -247,7 +286,7 @@ export function PlayPage() {
         <div className="play-actions">
           <div className="assist-badge"><span>ASSIST</span><b>{assistMode.toUpperCase()}</b></div>
           <div className={`assist-badge recording-badge ${recordingStatus}`} title="カメラ・マイクは使用しません">
-            <span>VIDEO</span><b>{recordingStatus === "recording" ? "● REC" : recordingStatus === "saved" ? "保存済" : recordingStatus === "unsupported" ? "非対応" : "準備中"}</b>
+            <span>{isPractice ? "MODE" : "VIDEO"}</span><b>{recordingStatus === "practice" ? "PRACTICE" : recordingStatus === "recording" ? "● REC" : recordingStatus === "saved" ? "保存済" : recordingStatus === "unsupported" ? "非対応" : "準備中"}</b>
           </div>
           <button className="player-switch-button" type="button" onClick={() => setSwitchingPlayer(true)} disabled={saving}>
             {saving ? "保存中…" : "利用者切替"}
@@ -280,12 +319,12 @@ export function PlayPage() {
 
         <aside className="reward-preview">
           <p className="eyebrow">THIS MISSION CRAFTS</p>
-          <RewardIcon id={mission.reward.id} kind={mission.reward.kind} locked={!missionComplete} size={126} />
+          <RewardIcon id={mission.reward.id} kind={mission.reward.kind} locked={!missionComplete && !missionWasAlreadyCompleted} size={126} />
           <h2>{mission.reward.name}</h2>
           <p>{mission.description}</p>
           <div><span style={{ width: `${(missionProgress / 20) * 100}%` }} /></div>
-          <small>あと {Math.max(0, 20 - missionProgress)} フレーズで完成</small>
-          <p className="recording-note">動画成果物：タイピング画面のみ自動記録。カメラ・マイク・デスクトップは記録しません。</p>
+          <small>{isPractice ? `練習 あと ${Math.max(0, 20 - missionProgress)} フレーズ` : `あと ${Math.max(0, 20 - missionProgress)} フレーズで完成`}</small>
+          <p className="recording-note">{isPractice ? "練習モードでは進捗・報酬・成果物を変更しません。" : "動画成果物：タイピング画面のみ自動記録。カメラ・マイク・デスクトップは記録しません。"}</p>
         </aside>
       </main>
 
@@ -296,24 +335,33 @@ export function PlayPage() {
           currentKeyId={session.keyId}
           onClose={() => setSwitchingPlayer(false)}
           onSelect={handlePlayerSwitch}
+          onStartNew={() => { recorderRef.current?.cancel(); void navigate("/?new=1"); }}
         />
       )}
 
       {missionComplete && (
         <div className="modal-backdrop complete-backdrop">
           <section className="complete-card" role="dialog" aria-modal="true" aria-labelledby="complete-title">
-            <p className="eyebrow">MISSION COMPLETE</p>
+            <p className="eyebrow">{isPractice ? "PRACTICE COMPLETE" : "MISSION COMPLETE"}</p>
             <RewardIcon id={mission.reward.id} kind={mission.reward.kind} size={150} />
-            <h1 id="complete-title">{mission.reward.name}<br /><span>が完成しました！</span></h1>
-            <p>CRAFT MAPに新しい景色が追加されました。</p>
-            <p>{recordingStatus === "saved" ? "制作動画も納品用ファイルとして保存しました。" : recordingStatus === "recording" ? "制作動画を保存しています…" : "動画保存に対応していないブラウザです。"}</p>
-            <p className={`artifact-save-status ${artifactStatus}`} aria-live="polite">
-              {artifactStatus === "saving" ? "成果物PNGを自動生成・クラウド保存しています…"
-                : artifactStatus === "saved" ? `成果物PNGを${artifactCount}件、自動保存しました。`
-                  : artifactStatus === "error" ? "進捗は保存済みです。成果物PNGの保存だけ自動再試行できませんでした。"
-                    : "成果物PNGはMISSION完了後に自動保存されます。"}
-            </p>
-            <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" disabled={artifactStatus === "saving"} onClick={() => navigate(`/play?mission=m${String(Math.min(250, mission.number + 1)).padStart(3, "0")}`)}>{artifactStatus === "saving" ? "成果物保存中…" : "次のMISSIONへ →"}</button></div>
+            <h1 id="complete-title">{mission.reward.name}<br /><span>{isPractice ? "の練習が完了しました！" : wasCompleteOnOpen ? "は完成済みです" : "が完成しました！"}</span></h1>
+            <p>{isPractice ? "進捗や報酬を変えずに、20フレーズをもう一度練習しました。" : wasCompleteOnOpen ? "このMISSIONは練習モードで何度でも遊べます。" : "CRAFT MAPに新しい景色が追加されました。"}</p>
+            {!isPractice && !wasCompleteOnOpen && <p>{recordingStatus === "saved" ? "制作動画も納品用ファイルとして保存しました。" : recordingStatus === "recording" ? "制作動画を保存しています…" : "動画保存に対応していないブラウザです。"}</p>}
+            {!isPractice && !wasCompleteOnOpen && (
+              <p className={`artifact-save-status ${artifactStatus}`} aria-live="polite">
+                {artifactStatus === "saving" ? "成果物PNGを自動生成・クラウド保存しています…"
+                  : artifactStatus === "saved" ? `成果物PNGを${artifactCount}件、自動保存しました。`
+                    : artifactStatus === "error" ? "進捗は保存済みです。成果物PNGの保存だけ自動再試行できませんでした。"
+                      : "成果物PNGはMISSION完了後に自動保存されます。"}
+              </p>
+            )}
+            {isPractice ? (
+              <div><Link className="button secondary" to="/missions?filter=complete">MISSION一覧へ</Link><button className="button primary" type="button" onClick={restartPractice}>もう一度練習する ↻</button></div>
+            ) : wasCompleteOnOpen ? (
+              <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" onClick={() => navigate(`/play?mission=${mission.id}&practice=1`, { replace: true })}>このMISSIONを練習する ↻</button></div>
+            ) : (
+              <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" disabled={artifactStatus === "saving"} onClick={() => navigate(mission.number >= 250 ? "/complete" : `/play?mission=m${String(mission.number + 1).padStart(3, "0")}`)}>{artifactStatus === "saving" ? "成果物保存中…" : mission.number >= 250 ? "完成記録を見る →" : "次のMISSIONへ →"}</button></div>
+            )}
           </section>
         </div>
       )}

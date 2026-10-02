@@ -11,8 +11,8 @@ const request = async (path: string, method = "GET", body?: unknown): Promise<Re
   }), env, ctx);
 };
 
-const createKeyId = async (): Promise<string> => {
-  const response = await request("/api/users", "POST", {});
+const createKeyId = async (nickname = "テスト利用者", pin = "6412"): Promise<string> => {
+  const response = await request("/api/users", "POST", { nickname, pin });
   expect(response.status).toBe(201);
   const body = await response.json<{ keyId: string }>();
   return body.keyId;
@@ -42,7 +42,12 @@ describe("Worker API + D1", () => {
     expect(keyId).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
     const response = await request("/api/session", "POST", { keyId });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ keyId, progress: [], completedMissionIds: [] });
+    expect(await response.json()).toMatchObject({ keyId, hasPin: true, progress: [], completedMissionIds: [] });
+  });
+
+  it("利用者名とPINがない新規作成を拒否する", async () => {
+    expect((await request("/api/users", "POST", {})).status).toBe(400);
+    expect((await request("/api/users", "POST", { nickname: "利用者", pin: "12" })).status).toBe(400);
   });
 
   it("登録した利用者名を完全一致で検索する", async () => {
@@ -50,9 +55,11 @@ describe("Worker API + D1", () => {
     await setNickname(keyId, "ゆうき");
     const response = await request("/api/users/search", "POST", { nickname: "ゆうき" });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      matches: [{ keyId, nickname: "ゆうき", completedPhrases: 0, completedMissions: 0 }],
-    });
+    const found = await response.json<{ matches: Array<Record<string, unknown>> }>();
+    expect(found.matches).toHaveLength(1);
+    expect(found.matches[0]).toMatchObject({ nickname: "ゆうき", keySuffix: keyId.slice(-2), hasPin: true, completedPhrases: 0, completedMissions: 0 });
+    expect(found.matches[0]).not.toHaveProperty("keyId");
+    expect(found.matches[0]?.accountRef).toMatch(/^[a-f0-9-]{36}$/i);
     const missing = await request("/api/users/search", "POST", { nickname: "ゆう" });
     expect(await missing.json()).toEqual({ matches: [] });
   });
@@ -63,10 +70,33 @@ describe("Worker API + D1", () => {
     await setNickname(firstKey, "さくら");
     await setNickname(secondKey, "さくら");
     await request("/api/progress/phrase", "POST", { keyId: firstKey, missionId: "m001", phraseId: "p001-01", accuracy: 100, keystrokes: 10, missKeys: {} });
-    const result = await (await request("/api/users/search", "POST", { nickname: "さくら" })).json<{ matches: Array<{ keyId: string; completedPhrases: number }> }>();
+    const result = await (await request("/api/users/search", "POST", { nickname: "さくら" })).json<{ matches: Array<{ keySuffix: string; completedPhrases: number; keyId?: string }> }>();
     expect(result.matches).toHaveLength(2);
-    expect(result.matches.find((item) => item.keyId === firstKey)?.completedPhrases).toBe(1);
-    expect(result.matches.find((item) => item.keyId === secondKey)?.completedPhrases).toBe(0);
+    expect(result.matches.map((item) => item.completedPhrases).sort()).toEqual([0, 1]);
+    expect(result.matches.every((item) => item.keyId === undefined)).toBe(true);
+    expect(firstKey).not.toBe(secondKey);
+  });
+
+  it("名前検索ではKEY IDを隠し、正しいPINだけでログインする", async () => {
+    const keyId = await createKeyId("PIN利用者", "8642");
+    const search = await (await request("/api/users/search", "POST", { nickname: "PIN利用者" })).json<{ matches: Array<{ accountRef: string }> }>();
+    const accountRef = search.matches[0]!.accountRef;
+    expect((await request("/api/users/login", "POST", { accountRef, pin: "1111" })).status).toBe(401);
+    const login = await request("/api/users/login", "POST", { accountRef, pin: "8642" });
+    expect(login.status).toBe(200);
+    expect(await login.json()).toEqual({ keyId, legacy: false });
+  });
+
+  it("旧アカウントはデータを維持したままPINを追加できる", async () => {
+    const keyId = await createKeyId("旧利用者", "2468");
+    await env.DB.prepare("UPDATE users SET pin_salt = NULL, pin_hash = NULL, pin_iterations = NULL WHERE key_id = ?").bind(keyId).run();
+    const search = await (await request("/api/users/search", "POST", { nickname: "旧利用者" })).json<{ matches: Array<{ accountRef: string; hasPin: boolean }> }>();
+    expect(search.matches[0]?.hasPin).toBe(false);
+    const legacyLogin = await (await request("/api/users/login", "POST", { accountRef: search.matches[0]!.accountRef })).json<{ keyId: string; legacy: boolean }>();
+    expect(legacyLogin).toEqual({ keyId, legacy: true });
+    expect((await request("/api/users/pin", "PUT", { keyId, pin: "1357" })).status).toBe(200);
+    const session = await (await request("/api/session", "POST", { keyId })).json<{ hasPin: boolean }>();
+    expect(session.hasPin).toBe(true);
   });
 
   it("1フレーズ保存を冪等に処理する", async () => {

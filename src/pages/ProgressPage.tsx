@@ -4,7 +4,7 @@ import { ProgressRing } from "../components/ProgressRing";
 import { RewardIcon } from "../components/RewardIcon";
 import { catalog, missionById } from "../content/catalog";
 import { usePlayer } from "../context/PlayerContext";
-import { aggregateMissKeys, completedDistrictCount, nextMission } from "../game/progress";
+import { aggregateMissKeys, completedDistrictCount, nextIncompleteMission } from "../game/progress";
 
 export function ProgressPage() {
   const { session } = usePlayer();
@@ -16,7 +16,7 @@ export function ProgressPage() {
   const accuracy = phraseCount === 0 ? 100 : session.progress.reduce((sum, item) => sum + item.accuracy, 0) / phraseCount;
   const keystrokes = session.progress.reduce((sum, item) => sum + item.keystrokes, 0);
   const missKeys = aggregateMissKeys(session.progress).slice(0, 5);
-  const recommended = nextMission(catalog, session.completedMissionIds, session.preferences.genres);
+  const recommended = nextIncompleteMission(catalog, session.completedMissionIds, session.preferences.genres);
   const recent = [...session.completedMissionIds].reverse().slice(0, 6).map((id) => missionById.get(id)).filter(Boolean);
 
   return (
@@ -43,7 +43,7 @@ export function ProgressPage() {
           <header><div><p className="eyebrow">NEXT PRACTICE</p><h2>次のおすすめ練習</h2></div></header>
           <p>入力で少し迷ったキーを、前向きな練習候補として表示しています。</p>
           {missKeys.length > 0 ? <div className="practice-keys">{missKeys.map(([key, count], index) => <span key={key} className={index === 0 ? "top" : ""}><kbd>{key.toUpperCase()}</kbd><small>{count}回</small></span>)}</div> : <div className="perfect-note">まだ迷ったキーはありません。いいスタートです！</div>}
-          <Link className="button secondary" to={`/play?mission=${recommended.id}`}>おすすめMISSIONへ</Link>
+          <Link className="button secondary" to={recommended ? `/play?mission=${recommended.id}` : "/complete"}>{recommended ? "おすすめMISSIONへ" : "完成記録を見る"}</Link>
         </section>
       </div>
 

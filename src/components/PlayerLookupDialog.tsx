@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { searchPlayersByName, type PlayerLookupMatch } from "../api/client";
+import { loginPlayer, searchPlayersByName, type PlayerLookupMatch } from "../api/client";
 
 interface PlayerLookupDialogProps {
   title?: string;
@@ -8,6 +8,7 @@ interface PlayerLookupDialogProps {
   currentKeyId?: string;
   onClose: () => void;
   onSelect: (keyId: string) => Promise<void>;
+  onStartNew?: () => void;
 }
 
 export function PlayerLookupDialog({
@@ -17,11 +18,14 @@ export function PlayerLookupDialog({
   currentKeyId,
   onClose,
   onSelect,
+  onStartNew,
 }: PlayerLookupDialogProps) {
   const [mode, setMode] = useState<"name" | "key">("name");
   const [nickname, setNickname] = useState("");
   const [keyId, setKeyId] = useState("");
   const [matches, setMatches] = useState<PlayerLookupMatch[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<PlayerLookupMatch | null>(null);
+  const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -30,11 +34,18 @@ export function PlayerLookupDialog({
     nameInputRef.current?.focus();
   }, []);
 
-  const selectPlayer = async (selectedKeyId: string) => {
+  const continueWithMatch = async (match: PlayerLookupMatch, selectedPin?: string) => {
+    if (match.hasPin && !selectedPin) {
+      setSelectedMatch(match);
+      setPin("");
+      setError(null);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await onSelect(selectedKeyId);
+      const result = await loginPlayer(match.accountRef, selectedPin);
+      await onSelect(result.keyId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "利用者を読み込めませんでした");
       setBusy(false);
@@ -52,9 +63,6 @@ export function PlayerLookupDialog({
       const result = await searchPlayersByName(name);
       if (result.matches.length === 0) {
         setError("この名前の利用者が見つかりません。名前が登録されているか確認してください。");
-      } else if (result.matches.length === 1) {
-        await onSelect(result.matches[0]!.keyId);
-        return;
       } else {
         setMatches(result.matches);
       }
@@ -67,13 +75,28 @@ export function PlayerLookupDialog({
   const handleKeySubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (keyId.length !== 6) return;
-    await selectPlayer(keyId);
+    setBusy(true);
+    setError(null);
+    try {
+      await onSelect(keyId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "利用者を読み込めませんでした");
+      setBusy(false);
+    }
+  };
+
+  const handlePinSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedMatch || !/^\d{4,8}$/.test(pin)) return;
+    await continueWithMatch(selectedMatch, pin);
   };
 
   const changeMode = (nextMode: "name" | "key") => {
     setMode(nextMode);
     setError(null);
     setMatches([]);
+    setSelectedMatch(null);
+    setPin("");
   };
 
   return (
@@ -109,16 +132,24 @@ export function PlayerLookupDialog({
               <button className="button primary" type="submit" disabled={busy || !nickname.trim()}>{busy ? "探しています…" : "名前で探す"}</button>
             </form>
 
-            {matches.length > 1 && (
+            {matches.length > 0 && (
               <div className="player-match-list" aria-label="同じ名前の候補">
-                <p>同じ名前が {matches.length} 人います。進み具合を見て選んでください。</p>
+                <p>{matches.length === 1 ? "見つかった利用者です。" : `同じ名前が ${matches.length} 人います。進み具合を見て選んでください。`}</p>
                 {matches.map((match) => (
-                  <button key={match.keyId} type="button" onClick={() => void selectPlayer(match.keyId)} disabled={busy}>
-                    <span><strong>{match.nickname}</strong><small>KEY ID …{match.keyId.slice(-2)}</small></span>
+                  <button key={match.accountRef} type="button" className={selectedMatch?.accountRef === match.accountRef ? "selected" : ""} onClick={() => void continueWithMatch(match)} disabled={busy}>
+                    <span><strong>{match.nickname}</strong><small>KEY ID …{match.keySuffix} · {match.hasPin ? "PIN保護" : "旧アカウント"}</small></span>
                     <span><b>{match.completedPhrases}</b> フレーズ / <b>{match.completedMissions}</b> MISSION</span>
                   </button>
                 ))}
               </div>
+            )}
+
+            {selectedMatch && (
+              <form className="lookup-pin-form" onSubmit={(event) => void handlePinSubmit(event)}>
+                <label htmlFor="lookup-player-pin">{selectedMatch.nickname} のPIN</label>
+                <input id="lookup-player-pin" autoFocus type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="4〜8桁" />
+                <button className="button primary" type="submit" disabled={busy || !/^\d{4,8}$/.test(pin)}>{busy ? "確認中…" : "PINで続ける"}</button>
+              </form>
             )}
           </>
         ) : (
@@ -139,7 +170,8 @@ export function PlayerLookupDialog({
         <button className="lookup-mode-toggle" type="button" onClick={() => changeMode(mode === "name" ? "key" : "name")} disabled={busy}>
           {mode === "name" ? "名前未登録の方は KEY IDで探す" : "← 名前で探す"}
         </button>
-        {mode === "name" && <small className="lookup-help">新しく始める利用者は、最初に名前・ニックネームを登録するので次回から名前で探せます。</small>}
+        {onStartNew && <button className="lookup-new-player" type="button" onClick={onStartNew} disabled={busy}>＋ 新しい利用者を作る</button>}
+        {mode === "name" && <small className="lookup-help">新しい利用者はPINで保護されます。旧アカウントはログイン後の設定画面からPINを追加できます。</small>}
       </section>
     </div>
   );

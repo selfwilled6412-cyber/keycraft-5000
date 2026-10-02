@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { catalog } from "../src/content/catalog";
-import { isMissionAvailable, nextMission } from "../src/game/progress";
+import { isMissionAvailable, nextIncompleteMission, nextMission } from "../src/game/progress";
 
 describe("静的コンテンツ", () => {
   it("数量設計が5 × 5 × 10 × 20になっている", () => {
@@ -38,5 +38,9 @@ describe("静的コンテンツ", () => {
     const recommended = nextMission(catalog, [], ["食べ物"]);
     expect(recommended.genre).toBe("食べ物");
     expect(recommended.zoneId).toBe("z1");
+  });
+
+  it("全MISSION完成後は次のMISSIONを返さない", () => {
+    expect(nextIncompleteMission(catalog, catalog.missions.map((mission) => mission.id), [])).toBeNull();
   });
 });
