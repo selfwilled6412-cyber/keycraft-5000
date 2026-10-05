@@ -1,3 +1,5 @@
+import { PHRASES_PER_MISSION, TOTAL_MISSIONS, TOTAL_PHRASES } from "../src/content/limits";
+
 const KEY_ID_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 const PIN_PATTERN = /^\d{4,8}$/;
 const MISSION_ID_PATTERN = /^m(\d{3})$/;
@@ -228,7 +230,7 @@ function validateContentIds(phraseId: unknown, missionId: unknown): { phraseId: 
   const phraseMission = Number(phraseMatch[1]);
   const phraseOrder = Number(phraseMatch[2]);
   const missionNumber = Number(missionMatch[1]);
-  if (missionNumber < 1 || missionNumber > 250 || phraseMission !== missionNumber || phraseOrder < 1 || phraseOrder > 20) {
+  if (missionNumber < 1 || missionNumber > TOTAL_MISSIONS || phraseMission !== missionNumber || phraseOrder < 1 || phraseOrder > PHRASES_PER_MISSION) {
     throw new HttpError(400, "フレーズとMISSIONの組み合わせが不正です");
   }
   return { phraseId, missionId };
@@ -627,7 +629,7 @@ async function getDeliverableFile(request: Request, env: AppEnv, id: string): Pr
 async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === "/api/health" && request.method === "GET") {
-    return json({ ok: true, service: "keycraft-5000", contentVersion: 2, deliverables: true, accountPin: true });
+    return json({ ok: true, service: "keycraft-5000", contentVersion: 4, totalMissions: TOTAL_MISSIONS, totalPhrases: TOTAL_PHRASES, deliverables: true, accountPin: true });
   }
   if (pathname === "/api/users" && request.method === "POST") return createUser(request, env);
   if (pathname === "/api/users/search" && request.method === "POST") return searchUsers(request, env);

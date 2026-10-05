@@ -1,5 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  DISTRICTS_PER_ZONE,
+  MISSIONS_PER_DISTRICT,
+  PHRASES_PER_MISSION,
+  TOTAL_DISTRICTS,
+  TOTAL_MISSIONS,
+  TOTAL_PHRASES,
+  TOTAL_ZONES,
+} from "../src/content/limits";
 import type { ContentCatalog } from "../src/content/types";
 
 const catalog = JSON.parse(
@@ -20,22 +29,22 @@ const duplicateValues = (values: string[]): string[] => {
   return [...duplicates];
 };
 
-assert(catalog.zones.length === 5, `ZONE数: ${catalog.zones.length} (期待値 5)`);
-assert(catalog.districts.length === 25, `DISTRICT数: ${catalog.districts.length} (期待値 25)`);
-assert(catalog.missions.length === 250, `MISSION数: ${catalog.missions.length} (期待値 250)`);
-assert(catalog.phrases.length === 5000, `フレーズ数: ${catalog.phrases.length} (期待値 5000)`);
+assert(catalog.zones.length === TOTAL_ZONES, `ZONE数: ${catalog.zones.length} (期待値 ${TOTAL_ZONES})`);
+assert(catalog.districts.length === TOTAL_DISTRICTS, `DISTRICT数: ${catalog.districts.length} (期待値 ${TOTAL_DISTRICTS})`);
+assert(catalog.missions.length === TOTAL_MISSIONS, `MISSION数: ${catalog.missions.length} (期待値 ${TOTAL_MISSIONS})`);
+assert(catalog.phrases.length === TOTAL_PHRASES, `フレーズ数: ${catalog.phrases.length} (期待値 ${TOTAL_PHRASES})`);
 
 for (const zone of catalog.zones) {
-  assert(catalog.districts.filter((district) => district.zoneId === zone.id).length === 5, `${zone.id}のDISTRICT数が5ではありません`);
+  assert(catalog.districts.filter((district) => district.zoneId === zone.id).length === DISTRICTS_PER_ZONE, `${zone.id}のDISTRICT数が${DISTRICTS_PER_ZONE}ではありません`);
 }
 for (const district of catalog.districts) {
-  assert(catalog.missions.filter((mission) => mission.districtId === district.id).length === 10, `${district.id}のMISSION数が10ではありません`);
+  assert(catalog.missions.filter((mission) => mission.districtId === district.id).length === MISSIONS_PER_DISTRICT, `${district.id}のMISSION数が${MISSIONS_PER_DISTRICT}ではありません`);
 }
 for (const mission of catalog.missions) {
   const ownedPhrases = catalog.phrases.filter((phrase) => phrase.missionId === mission.id);
-  assert(ownedPhrases.length === 20, `${mission.id}のフレーズ数: ${ownedPhrases.length}`);
-  assert(mission.phraseIds.length === 20, `${mission.id}のphraseIds数: ${mission.phraseIds.length}`);
-  assert(mission.level >= 1 && mission.level <= 5, `${mission.id}の難易度が範囲外です`);
+  assert(ownedPhrases.length === PHRASES_PER_MISSION, `${mission.id}のフレーズ数: ${ownedPhrases.length}`);
+  assert(mission.phraseIds.length === PHRASES_PER_MISSION, `${mission.id}のphraseIds数: ${mission.phraseIds.length}`);
+  assert(mission.level >= 1 && mission.level <= TOTAL_ZONES, `${mission.id}の難易度が範囲外です`);
   assert(Boolean(mission.title.trim()), `${mission.id}の目的が空です`);
   assert(Boolean(mission.reward.name.trim()), `${mission.id}の報酬が空です`);
 }
@@ -57,7 +66,7 @@ for (const phrase of catalog.phrases) {
   assert(phrase.text.length <= 100, `${phrase.id}が長すぎます (${phrase.text.length}文字)`);
   assert(phrase.text.length >= 2, `${phrase.id}が短すぎます`);
   assert(/^[a-z0-9,./!'? -]+$/.test(phrase.romanization), `${phrase.id}のromanizationに不正文字があります`);
-  assert(phrase.level >= 1 && phrase.level <= 5, `${phrase.id}の難易度が範囲外です`);
+  assert(phrase.level >= 1 && phrase.level <= TOTAL_ZONES, `${phrase.id}の難易度が範囲外です`);
   for (const word of prohibitedWords) {
     assert(!phrase.text.includes(word), `${phrase.id}に禁止語「${word}」があります`);
   }
@@ -66,8 +75,8 @@ for (const phrase of catalog.phrases) {
 const levelOneRomans = catalog.phrases.filter((phrase) => phrase.level === 1).map((phrase) => phrase.romanization).join("");
 const advancedRomans = catalog.phrases.filter((phrase) => phrase.level >= 4).map((phrase) => phrase.romanization).join("");
 assert(!/[0-9]/.test(levelOneRomans), "LEVEL 1に数字キーが混ざっています");
-assert(/[0-9]/.test(advancedRomans), "LEVEL 4-5に数字キーがありません");
-assert(/[,.]/.test(advancedRomans), "LEVEL 4-5に句読点キーがありません");
+assert(/[0-9]/.test(advancedRomans), "LEVEL 4以上に数字キーがありません");
+assert(/[,.]/.test(advancedRomans), "LEVEL 4以上に句読点キーがありません");
 
 if (errors.length > 0) {
   console.error(`コンテンツ検品で${errors.length}件の問題が見つかりました。`);
@@ -75,5 +84,5 @@ if (errors.length > 0) {
   process.exitCode = 1;
 } else {
   console.log("Content validation passed.");
-  console.log("5 zones / 25 districts / 250 missions / 5,000 unique phrases / 250 unique rewards");
+  console.log(`${TOTAL_ZONES} zones / ${TOTAL_DISTRICTS} districts / ${TOTAL_MISSIONS} missions / ${TOTAL_PHRASES.toLocaleString()} unique phrases / ${TOTAL_MISSIONS} unique rewards`);
 }

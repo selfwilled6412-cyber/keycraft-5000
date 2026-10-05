@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { TOTAL_ZONES } from "../src/content/limits";
 import type { ContentCatalog } from "../src/content/types";
 
 const catalog = JSON.parse(await readFile(resolve("src/content/generated/content.json"), "utf8")) as ContentCatalog;
 
-for (let level = 1; level <= 5; level += 1) {
+for (let level = 1; level <= TOTAL_ZONES; level += 1) {
   const phrases = catalog.phrases.filter((phrase) => phrase.level === level);
   const romans = phrases.map((phrase) => phrase.romanization).join("");
   const counts = new Map<string, number>();

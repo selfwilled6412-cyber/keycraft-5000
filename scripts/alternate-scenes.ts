@@ -2,6 +2,19 @@ import type { TextReading } from "../src/content/types";
 
 type Suffix = readonly [text: string, reading: string];
 
+const advancedAlternateSceneSuffixes: readonly Suffix[] = [
+  ["を別の視点から説明する", "をべつのしてんからせつめいする"],
+  ["が役立つ未来の場面を想像する", "がやくだつみらいのばめんをそうぞうする"],
+  ["の安全を確かめる項目を挙げる", "のあんぜんをたしかめるこうもくをあげる"],
+  ["から集めた結果を短くまとめる", "からあつめたけっかをみじかくまとめる"],
+  ["を二つの方法で比べる", "をふたつのほうほうでくらべる"],
+  ["の成果を確かめる目印を決める", "のせいかをたしかめるめじるしをきめる"],
+  ["が使えない場合の手順を考える", "がつかえないばあいのてじゅんをかんがえる"],
+  ["を次の世代へ残す方法を選ぶ", "をつぎのせだいへのこすほうほうをえらぶ"],
+  ["について利用者の意見を集める", "についてりようしゃのいけんをあつめる"],
+  ["の改善前と改善後を比べる", "のかいぜんまえとかいぜんごをくらべる"],
+];
+
 export const alternateSceneSuffixes: Record<string, readonly Suffix[]> = {
   "はじまり通り": [
     ["の予定をひとつ決める", "のよていをひとつきめる"],
@@ -306,7 +319,7 @@ export const alternateSceneSuffixes: Record<string, readonly Suffix[]> = {
 };
 
 export function buildAlternateScene(districtName: string, word: TextReading, wordIndex: number): TextReading {
-  const suffixes = alternateSceneSuffixes[districtName];
+  const suffixes = alternateSceneSuffixes[districtName] ?? advancedAlternateSceneSuffixes;
   if (!suffixes || suffixes.length !== 10) {
     throw new Error(`Alternate scenes are incomplete for ${districtName}`);
   }

@@ -4,13 +4,14 @@ import { GameGate } from "../components/GameGate";
 import { ProgressRing } from "../components/ProgressRing";
 import { RewardIcon } from "../components/RewardIcon";
 import { catalog } from "../content/catalog";
+import { TOTAL_MISSIONS } from "../content/limits";
 import { usePlayer } from "../context/PlayerContext";
 import { isMissionAvailable, missionPhraseCount } from "../game/progress";
 
 export function MapPage() {
   const { session } = usePlayer();
   const defaultZone = session
-    ? catalog.missions.find((mission) => !session.completedMissionIds.includes(mission.id))?.zoneId ?? "z5"
+    ? catalog.missions.find((mission) => !session.completedMissionIds.includes(mission.id))?.zoneId ?? catalog.zones[catalog.zones.length - 1]!.id
     : "z1";
   const [selectedZoneId, setSelectedZoneId] = useState(defaultZone);
   const selectedZone = catalog.zones.find((zone) => zone.id === selectedZoneId) ?? catalog.zones[0]!;
@@ -30,7 +31,7 @@ export function MapPage() {
           <h1>CRAFT MAP</h1>
           <p>完成したMISSIONから、あなたの世界を何度でも組み立てます。</p>
         </div>
-        <div className="map-overall"><ProgressRing value={totalProgress} label="WORLD" size={104} /><div><span>完成した建物</span><strong>{session.completedMissionIds.length}<small> / 250</small></strong></div></div>
+        <div className="map-overall"><ProgressRing value={totalProgress} label="WORLD" size={104} /><div><span>完成した建物</span><strong>{session.completedMissionIds.length}<small> / {TOTAL_MISSIONS}</small></strong></div></div>
       </header>
 
       <div className="zone-tabs" role="tablist" aria-label="ZONEを選ぶ">

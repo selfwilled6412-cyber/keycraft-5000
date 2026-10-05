@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { catalog } from "../src/content/catalog";
+import { TOTAL_DISTRICTS, TOTAL_MISSIONS, TOTAL_ZONES } from "../src/content/limits";
 
-const STAGES = [0, 10, 50, 100, 250] as const;
+const STAGES = [0, 10, 50, 100, 250, 500] as const;
 
 describe("CRAFT MAP growth model", () => {
-  it("250 MISSIONが25地区と5ZONEに正しく分配される", () => {
-    expect(catalog.zones).toHaveLength(5);
-    expect(catalog.districts).toHaveLength(25);
-    expect(catalog.missions).toHaveLength(250);
+  it("500 MISSIONが50地区と10ZONEに正しく分配される", () => {
+    expect(catalog.zones).toHaveLength(TOTAL_ZONES);
+    expect(catalog.districts).toHaveLength(TOTAL_DISTRICTS);
+    expect(catalog.missions).toHaveLength(TOTAL_MISSIONS);
 
     for (const zone of catalog.zones) {
       const districts = catalog.districts.filter((district) => district.zoneId === zone.id);
@@ -28,8 +29,8 @@ describe("CRAFT MAP growth model", () => {
     }
   });
 
-  it("250個の報酬はすべて固有で座標も描画可能範囲にある", () => {
-    expect(new Set(catalog.missions.map((mission) => mission.reward.id)).size).toBe(250);
+  it("500個の報酬はすべて固有で座標も描画可能範囲にある", () => {
+    expect(new Set(catalog.missions.map((mission) => mission.reward.id)).size).toBe(TOTAL_MISSIONS);
     for (const mission of catalog.missions) {
       expect(mission.coordinates.x).toBeGreaterThanOrEqual(0);
       expect(mission.coordinates.x).toBeLessThanOrEqual(100);

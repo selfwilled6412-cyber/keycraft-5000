@@ -15,6 +15,19 @@ const frame = (prefixText = "", prefixReading = prefixText, suffixText = "", suf
   suffix: part(suffixText, suffixReading),
 });
 
+const advancedSceneSuffixes: readonly Suffix[] = [
+  ["の役割を短く説明する", "のやくわりをみじかくせつめいする"],
+  ["が必要な場面を具体的に考える", "がひつようなばめんをぐたいてきにかんがえる"],
+  ["を安全に使う手順を三つに分ける", "をあんぜんにつかうてじゅんをみっつにわける"],
+  ["から得た情報を次の計画へ生かす", "からえたじょうほうをつぎのけいかくへいかす"],
+  ["を異なる立場から見直す", "をことなるたちばからみなおす"],
+  ["の効果を数字で確かめる方法を決める", "のこうかをすうじでたしかめるほうほうをきめる"],
+  ["が止まった時の代替案を用意する", "がとまったときのだいたいあんをよういする"],
+  ["を長く続けるための条件を整理する", "をながくつづけるためのじょうけんをせいりする"],
+  ["について仲間へ伝える要点を選ぶ", "についてなかまへつたえるようてんをえらぶ"],
+  ["の次に試す改善を一つ決める", "のつぎにためすかいぜんをひとつきめる"],
+];
+
 const sceneSuffixes: Record<string, readonly Suffix[]> = {
   "はじまり通り": [
     ["の空気を吸って目を覚ます", "のくうきをすってめをさます"],
@@ -457,7 +470,7 @@ export function diversifyPhrases(catalog: ContentCatalog): ContentCatalog {
     const districtSource = zoneSource?.districts.find((item) => item.name === district.name);
     if (!districtSource) throw new Error(`District source not found for ${currentPhrase.id}`);
 
-    const suffixes = sceneSuffixes[district.name];
+    const suffixes = sceneSuffixes[district.name] ?? advancedSceneSuffixes;
     if (!suffixes || suffixes.length !== districtSource.words.length) {
       throw new Error(`Natural scene definitions are incomplete for ${district.name}`);
     }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { RewardIcon } from "../components/RewardIcon";
 import { catalog } from "../content/catalog";
+import { TOTAL_DISTRICTS, TOTAL_MISSIONS, TOTAL_PHRASES, TOTAL_ZONES } from "../content/limits";
 
-const STAGES = [0, 10, 50, 100, 250] as const;
+const STAGES = [0, 10, 50, 100, 250, 500] as const;
 const DISTRICT_ANCHORS = [
   { x: 18, y: 25 },
   { x: 50, y: 18 },
@@ -16,7 +17,8 @@ const STAGE_COPY: Record<number, { title: string; description: string }> = {
   10: { title: "最初の地区が完成", description: "10 MISSIONで、1つ目のDISTRICTに10個のCRAFTが並びます。" },
   50: { title: "最初のZONEが完成", description: "50 MISSIONで、5 DISTRICTS・50個のCRAFTが1つの街を形づくります。" },
   100: { title: "世界が2つのZONEへ拡張", description: "100 MISSIONで、日常の街から遊びの街まで成長します。" },
-  250: { title: "KEY CRAFT WORLD 完成", description: "25 DISTRICTS・250 MISSION・250個のCRAFTがすべて解放された状態です。" },
+  250: { title: "第1世界を制覇", description: "25 DISTRICTS・250 MISSIONを完成し、第2世界への入口が開いた状態です。" },
+  500: { title: "KEY CRAFT 10000 完成", description: "50 DISTRICTS・500 MISSION・500個のCRAFTがすべて解放された状態です。" },
 };
 
 function missionPosition(missionNumber: number, districtNumber: number, x: number, y: number) {
@@ -60,13 +62,13 @@ export function GrowthDemoPage() {
           <p className="eyebrow">PRESENTATION / VERIFIED WORLD GROWTH</p>
           <h1>打つほど、<br /><span>本当に世界ができていく。</span></h1>
           <p>
-            実際の250 MISSION・250 CRAFT・25 DISTRICTS・5 ZONESの構造を使った、プレゼン用の成長シミュレーターです。
+            実際の{TOTAL_MISSIONS} MISSION・{TOTAL_MISSIONS} CRAFT・{TOTAL_DISTRICTS} DISTRICTS・{TOTAL_ZONES} ZONESの構造を使った、プレゼン用の成長シミュレーターです。
             建物位置は成長を見やすくするための模式配置で、利用者のD1進捗は一切変更しません。
           </p>
         </div>
         <div className="growth-proof-card">
           <span>SIMULATION</span>
-          <strong>{stage}<small> / 250</small></strong>
+          <strong>{stage}<small> / {TOTAL_MISSIONS}</small></strong>
           <b>MISSION COMPLETE</b>
         </div>
       </header>
@@ -74,9 +76,9 @@ export function GrowthDemoPage() {
       <section className="growth-evidence growth-evidence-top">
         <p className="eyebrow">VERIFIED FACTS ONLY</p>
         <div>
-          <article><strong>5,000</strong><span>PHRASES</span><p>250 MISSION × 20フレーズ。生成データと検品処理で件数を確認済みです。</p></article>
-          <article><strong>250</strong><span>MISSION = 250 CRAFT</span><p>MISSIONとCRAFT報酬は1対1。報酬IDの重複なしを自動テストで確認しています。</p></article>
-          <article><strong>25 / 5</strong><span>DISTRICTS / ZONES</span><p>25地区×10 MISSION、5 ZONE×50 MISSION。段階表示数も自動テスト済みです。</p></article>
+          <article><strong>{TOTAL_PHRASES.toLocaleString()}</strong><span>PHRASES</span><p>{TOTAL_MISSIONS} MISSION × 20フレーズ。生成データと検品処理で件数を確認済みです。</p></article>
+          <article><strong>{TOTAL_MISSIONS}</strong><span>MISSION = {TOTAL_MISSIONS} CRAFT</span><p>MISSIONとCRAFT報酬は1対1。報酬IDの重複なしを自動テストで確認しています。</p></article>
+          <article><strong>{TOTAL_DISTRICTS} / {TOTAL_ZONES}</strong><span>DISTRICTS / ZONES</span><p>{TOTAL_DISTRICTS}地区×10 MISSION、{TOTAL_ZONES} ZONE×50 MISSION。段階表示数も自動テスト済みです。</p></article>
         </div>
       </section>
 
@@ -96,9 +98,9 @@ export function GrowthDemoPage() {
       <section className="growth-summary">
         <div className="growth-summary-copy"><span>NOW</span><h2>{copy.title}</h2><p>{copy.description}</p></div>
         <div className="growth-metrics">
-          <div><strong>{stage}</strong><span>CRAFT / 250</span></div>
-          <div><strong>{completedDistricts}</strong><span>DISTRICTS / 25</span></div>
-          <div><strong>{completedZones}</strong><span>ZONES / 5</span></div>
+          <div><strong>{stage}</strong><span>CRAFT / {TOTAL_MISSIONS}</span></div>
+          <div><strong>{completedDistricts}</strong><span>DISTRICTS / {TOTAL_DISTRICTS}</span></div>
+          <div><strong>{completedZones}</strong><span>ZONES / {TOTAL_ZONES}</span></div>
         </div>
       </section>
 
@@ -143,9 +145,9 @@ export function GrowthDemoPage() {
       <section className="growth-evidence">
         <p className="eyebrow">VERIFICATION POINTS</p>
         <div>
-          <article><strong>250</strong><span>MISSION = 250 CRAFT</span><p>MISSIONごとに固有の報酬IDを持ち、完成数とCRAFT表示数が1対1で増えます。</p></article>
-          <article><strong>25 × 10</strong><span>DISTRICTS</span><p>各DISTRICTは10 MISSION。10個完成するたび、ひとつの地区が完成します。</p></article>
-          <article><strong>5 × 50</strong><span>ZONES</span><p>各ZONEは50 MISSION。50・100・150・200・250で世界が大きく広がります。</p></article>
+          <article><strong>{TOTAL_MISSIONS}</strong><span>MISSION = {TOTAL_MISSIONS} CRAFT</span><p>MISSIONごとに固有の報酬IDを持ち、完成数とCRAFT表示数が1対1で増えます。</p></article>
+          <article><strong>{TOTAL_DISTRICTS} × 10</strong><span>DISTRICTS</span><p>各DISTRICTは10 MISSION。10個完成するたび、ひとつの地区が完成します。</p></article>
+          <article><strong>{TOTAL_ZONES} × 50</strong><span>ZONES</span><p>各ZONEは50 MISSION。250で第1世界、500で第2世界まで完成します。</p></article>
         </div>
         <p>
           ※ このページは成長の仕組みを説明するための模式シミュレーションです。時間・人口・未検証の建物数などは表示していません。

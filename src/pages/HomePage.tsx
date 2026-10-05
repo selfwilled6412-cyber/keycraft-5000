@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { PlayerLookupDialog } from "../components/PlayerLookupDialog";
 import { PremiumSettlement } from "../components/PremiumSettlement";
 import { catalog } from "../content/catalog";
+import { TOTAL_DISTRICTS, TOTAL_MISSIONS, TOTAL_PHRASES, WORLD_ONE_MISSIONS } from "../content/limits";
 import { premiumHeroes, premiumRewardIcons } from "../content/premiumAssets";
 import { usePlayer } from "../context/PlayerContext";
 
@@ -21,6 +22,7 @@ export function HomePage() {
   const completedMissions = session?.completedMissionIds.length ?? 0;
   const completedPhrases = session?.progress.length ?? 0;
   const allComplete = completedMissions >= catalog.missions.length;
+  const worldOneComplete = completedMissions >= WORLD_ONE_MISSIONS && !allComplete;
   const currentMission = useMemo(() => session ? catalog.missions.find((mission) => !session.completedMissionIds.includes(mission.id)) ?? catalog.missions[catalog.missions.length - 1]! : catalog.missions[0]!, [session]);
   const currentDistrict = catalog.districts.find((district) => district.id === currentMission.districtId);
   const completedInMission = session?.progress.filter((item) => item.missionId === currentMission.id).length ?? 0;
@@ -81,7 +83,7 @@ export function HomePage() {
       <section className="premium-top-hud">
         <button type="button" className="premium-player-badge" onClick={() => setLookupOpen(true)}>
           <span className="premium-avatar-ring"><img src={premiumHeroes[0]!.image} alt="" crossOrigin="anonymous" /></span>
-          <span><b>{session?.preferences.nickname ?? "NEW COMMANDER"}</b><small>LV.{String(level).padStart(2, "0")} · {completedPhrases.toLocaleString()} / 5,000</small></span>
+          <span><b>{session?.preferences.nickname ?? "NEW COMMANDER"}</b><small>LV.{String(level).padStart(2, "0")} · {completedPhrases.toLocaleString()} / {TOTAL_PHRASES.toLocaleString()}</small></span>
         </button>
         <div className="premium-resource"><span>🔥</span><b>{(completedPhrases * 9 + 320).toLocaleString()}</b><small>+{level * 8}/分</small></div>
         <div className="premium-resource"><span>🪵</span><b>{(completedPhrases * 13 + 480).toLocaleString()}</b><small>+{level * 11}/分</small></div>
@@ -105,7 +107,7 @@ export function HomePage() {
 
       <section className="premium-event-card">
         <div className="premium-event-art"><img src={nextHero.image} alt="" crossOrigin="anonymous" /></div>
-        <div className="premium-event-copy"><span>CHAPTER {String(Math.min(25, Math.floor(completedMissions / 10) + 1)).padStart(2, "0")}</span><h1>{allComplete ? "極寒都市、完成。" : completedMissions ? "新区画へ出発！" : "極寒都市、始動。"}</h1><p>{allComplete ? "5,000フレーズと250の建物、8人の英雄がそろいました。" : completedMissions ? `次の仲間「${nextHero.name}」と、新しい建物が待っている。` : "最初の20フレーズから、自分だけの都市を築き始めよう。"}</p></div>
+        <div className="premium-event-copy"><span>CHAPTER {String(Math.min(TOTAL_DISTRICTS, Math.floor(completedMissions / 10) + 1)).padStart(2, "0")}</span><h1>{allComplete ? "二つの世界、完成。" : worldOneComplete ? "第2世界、開幕。" : completedMissions ? "新区画へ出発！" : "極寒都市、始動。"}</h1><p>{allComplete ? `${TOTAL_PHRASES.toLocaleString()}フレーズと${TOTAL_MISSIONS}の建物がそろいました。` : worldOneComplete ? "最初の5,000問を制覇しました。MISSION 251から新しい世界が始まります。" : completedMissions ? `次の仲間「${nextHero.name}」と、新しい建物が待っている。` : "最初の20フレーズから、自分だけの都市を築き始めよう。"}</p></div>
         <div className="premium-reward-strip">
           {premiumRewardIcons.map((icon, index) => <div key={icon}><img src={icon} alt="" crossOrigin="anonymous" /><b>x{index === 0 ? 300 : index + 1}</b></div>)}
         </div>

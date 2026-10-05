@@ -120,7 +120,7 @@ function buildPhrases(level: number, focus: TextReading, a: TextReading, b: Text
       join(f, literal("で"), b, literal("の魅力を守りながら、誰もが参加しやすい新しい催しを準備しましょう。", "のみりょくをまもりながら、だれもがさんかしやすいあたらしいもよおしをじゅんびしましょう。")),
       join(f, literal("の仕組みを公開するときは、正確さを確認し、専門用語に短い説明を添えます。", "のしくみをこうかいするときは、せいかくさをかくにんし、せんもんようごにみじかいせつめいをそえます。")),
       join(a, literal("から始まった一つの工夫が、", "からはじまったひとつのくふうが、"), f, literal("の新しい文化として街全体へ広がりました。", "のあたらしいぶんかとしてまちぜんたいへひろがりました。")),
-      join(f, literal("が完成しました。積み重ねた5000の言葉が、自分だけの世界を動かします。", "がかんせいしました。つみかさねた5000のことばが、じぶんだけのせかいをうごかします。")),
+      join(f, literal("が完成しました。積み重ねた言葉が、自分だけの世界を動かします。", "がかんせいしました。つみかさねたことばが、じぶんだけのせかいをうごかします。")),
     ],
   };
 
@@ -210,7 +210,7 @@ export function buildCatalog(): ContentCatalog {
 
   return {
     generatedAt: "2026-08-17T00:00:00.000Z",
-    version: 1,
+    version: 4,
     zones: zoneSources.map((zone) => ({
       id: zone.id,
       number: zone.number,

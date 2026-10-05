@@ -360,7 +360,7 @@ export function PlayPage() {
             ) : wasCompleteOnOpen ? (
               <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" onClick={() => navigate(`/play?mission=${mission.id}&practice=1`, { replace: true })}>このMISSIONを練習する ↻</button></div>
             ) : (
-              <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" disabled={artifactStatus === "saving"} onClick={() => navigate(mission.number >= 250 ? "/complete" : `/play?mission=m${String(mission.number + 1).padStart(3, "0")}`)}>{artifactStatus === "saving" ? "成果物保存中…" : mission.number >= 250 ? "完成記録を見る →" : "次のMISSIONへ →"}</button></div>
+              <div><Link className="button secondary" to="/map">MAPを見る</Link><button className="button primary" type="button" disabled={artifactStatus === "saving"} onClick={() => navigate(mission.number >= catalog.missions.length ? "/complete" : `/play?mission=m${String(mission.number + 1).padStart(3, "0")}`)}>{artifactStatus === "saving" ? "成果物保存中…" : mission.number >= catalog.missions.length ? "完成記録を見る →" : "次のMISSIONへ →"}</button></div>
             )}
           </section>
         </div>

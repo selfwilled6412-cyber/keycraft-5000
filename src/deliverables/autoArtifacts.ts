@@ -1,4 +1,5 @@
 import { catalog } from "../content/catalog";
+import { PRODUCT_NAME, TOTAL_PHRASES } from "../content/limits";
 import { premiumBuildings, premiumHeroes, premiumRewardIcons } from "../content/premiumAssets";
 import type { Mission } from "../content/types";
 
@@ -195,7 +196,7 @@ async function makeSettlement(input: AutoArtifactInput, completedAfter: string[]
   panel.addColorStop(1, "rgba(4,13,23,.08)");
   ctx.fillStyle = panel;
   ctx.fillRect(0, 0, 760, H);
-  drawHeader(ctx, "KEY CRAFT 5000 / AUTO DELIVERABLE", `${input.nickname} の極寒都市`, `MISSION ${String(completedAfter.length).padStart(3, "0")} · ${input.completedPhrasesAfter.toLocaleString()}/5,000 PHRASES`);
+  drawHeader(ctx, `${PRODUCT_NAME} / AUTO DELIVERABLE`, `${input.nickname} の極寒都市`, `MISSION ${String(completedAfter.length).padStart(3, "0")} · ${input.completedPhrasesAfter.toLocaleString()}/${TOTAL_PHRASES.toLocaleString()} PHRASES`);
 
   ctx.fillStyle = "#f5b83e";
   ctx.font = "900 122px sans-serif";
@@ -212,7 +213,7 @@ async function makeSettlement(input: AutoArtifactInput, completedAfter: string[]
   ctx.stroke();
   const stats = [
     ["DISTRICT CRAFT", `${completedHere}/10`],
-    ["PHRASES", `${input.completedPhrasesAfter}/5000`],
+    ["PHRASES", `${input.completedPhrasesAfter}/${TOTAL_PHRASES}`],
     ["CITY LEVEL", String(Math.max(1, Math.floor(input.completedPhrasesAfter / 100) + 1))],
     ["CREW", String(unlockedHeroes.length)],
   ] as const;
@@ -326,7 +327,7 @@ async function makeDistrictComplete(input: AutoArtifactInput, completedAfter: st
   });
   ctx.fillStyle = "#f0b640";
   ctx.font = "800 22px sans-serif";
-  ctx.fillText("KEY CRAFT 5000 · DISTRICT BUILD RECORD", 70, 850);
+  ctx.fillText(`${PRODUCT_NAME} · DISTRICT BUILD RECORD`, 70, 850);
   return toBlob(canvas);
 }
 

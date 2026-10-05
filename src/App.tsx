@@ -10,6 +10,7 @@ import { GrowthDemoPage } from "./pages/GrowthDemoPage";
 import { DeliverablesPage } from "./pages/DeliverablesPage";
 import { HeroesPage } from "./pages/HeroesPage";
 import { CompletionPage } from "./pages/CompletionPage";
+import { EndlessPage } from "./pages/EndlessPage";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/deliverables" element={<DeliverablesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/complete" element={<CompletionPage />} />
+        <Route path="/endless" element={<EndlessPage />} />
         <Route path="/demo-growth" element={<GrowthDemoPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

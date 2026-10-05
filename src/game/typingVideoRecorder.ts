@@ -81,7 +81,7 @@ export function createTypingVideoRecorder(): TypingVideoRecorder {
 
     ctx.fillStyle = "#7dd3fc";
     ctx.font = "700 22px system-ui, sans-serif";
-    ctx.fillText(`KEY CRAFT 5000  /  MISSION ${String(frame.mission.number).padStart(3, "0")}`, 60, 58);
+    ctx.fillText(`KEY CRAFT 10000  /  MISSION ${String(frame.mission.number).padStart(3, "0")}`, 60, 58);
     ctx.fillStyle = "#ffffff";
     ctx.font = "800 30px system-ui, sans-serif";
     ctx.fillText(frame.mission.title, 60, 100);

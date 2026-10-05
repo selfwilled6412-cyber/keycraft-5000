@@ -4,7 +4,7 @@ import worker from "../worker/index-kv";
 
 await access(resolve("dist/index.html"));
 const html = await readFile(resolve("dist/index.html"), "utf8");
-if (!html.includes("KEY CRAFT 5000")) throw new Error("Build output does not contain the game title.");
+if (!html.includes("KEY CRAFT 10000")) throw new Error("Build output does not contain the game title.");
 
 const smokeAssets: Fetcher = {
   async fetch() {

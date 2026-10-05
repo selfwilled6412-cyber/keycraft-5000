@@ -1,5 +1,6 @@
 import { premiumBuildings, premiumHeroes } from "../content/premiumAssets";
 import { premiumDecor } from "../content/premiumDecor";
+import { TOTAL_DISTRICTS, TOTAL_MISSIONS, TOTAL_PHRASES } from "../content/limits";
 
 interface PremiumSettlementProps {
   completedMissions: number;
@@ -106,9 +107,9 @@ export function PremiumSettlement({ completedMissions, completedPhrases, nicknam
 
       <div className="premium-world-vignette" />
       <div className="premium-world-title">
-        <span>FROST FRONTIER / DISTRICT {String(Math.min(25, Math.floor(completedMissions / 10) + 1)).padStart(2, "0")}</span>
+        <span>FROST FRONTIER / DISTRICT {String(Math.min(TOTAL_DISTRICTS, Math.floor(completedMissions / 10) + 1)).padStart(2, "0")}</span>
         <strong>{nickname ? `${nickname} の拠点` : "極寒都市 KEY CRAFT"}</strong>
-        <small>{districtProgress}/10 CRAFTS BUILT · {decorUnlocked.length} SUPPORT BLOCKS · {completedMissions}/250 MISSIONS · {completedPhrases}/5000 PHRASES</small>
+        <small>{districtProgress}/10 CRAFTS BUILT · {decorUnlocked.length} SUPPORT BLOCKS · {completedMissions}/{TOTAL_MISSIONS} MISSIONS · {completedPhrases}/{TOTAL_PHRASES} PHRASES</small>
       </div>
       <div className="premium-world-production"><span>🔥 {heat.toLocaleString()}</span><span>🪵 {wood.toLocaleString()}</span><span>❄ -27.3°C</span></div>
     </section>

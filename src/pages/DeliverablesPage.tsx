@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { PremiumSettlement } from "../components/PremiumSettlement";
 import { GameGate } from "../components/GameGate";
 import { catalog } from "../content/catalog";
+import { PRODUCT_NAME, TOTAL_DISTRICTS, TOTAL_PHRASES } from "../content/limits";
 import { premiumBuildings, premiumHeroes, premiumRewardIcons } from "../content/premiumAssets";
 import { usePlayer } from "../context/PlayerContext";
 
@@ -255,7 +256,7 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
   ctx.fillText(`${input.nickname} の極寒都市`, 72, 170);
   ctx.fillStyle = "#9db3c4";
   ctx.font = "600 22px sans-serif";
-  ctx.fillText(`${input.districtName} / DISTRICT ${String(Math.min(25, Math.floor(input.completedMissions / 10) + 1)).padStart(2, "0")}`, 76, 210);
+  ctx.fillText(`${input.districtName} / DISTRICT ${String(Math.min(TOTAL_DISTRICTS, Math.floor(input.completedMissions / 10) + 1)).padStart(2, "0")}`, 76, 210);
 
   ctx.fillStyle = "#f4b942";
   ctx.font = "900 122px sans-serif";
@@ -269,7 +270,7 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
   ctx.strokeStyle = "rgba(94,163,207,.34)"; ctx.lineWidth = 2; ctx.stroke();
   const stats = [
     ["CRAFTS BUILT", `${districtCrafts}/10`],
-    ["PHRASES", `${input.completedPhrases}/5000`],
+    ["PHRASES", `${input.completedPhrases}/${TOTAL_PHRASES}`],
     ["CITY LEVEL", String(cityLevel).padStart(2, "0")],
     ["HEAT OUTPUT", production.toLocaleString()],
   ] as const;
@@ -291,7 +292,7 @@ async function exportSettlementPoster(input: { filename: string; nickname: strin
   ctx.fillText("打つほど、世界ができていく。", 74, 826);
   ctx.fillStyle = "#7f9bb0";
   ctx.font = "700 16px sans-serif";
-  ctx.fillText("KEY CRAFT 5000 / PERSONAL BUILD RECORD", 74, 858);
+  ctx.fillText(`${PRODUCT_NAME} / PERSONAL BUILD RECORD`, 74, 858);
 
   downloadCanvas(canvas, input.filename);
 }
@@ -309,7 +310,7 @@ async function exportMissionCard(input: { filename: string; nickname: string; mi
   const titleLines = chunkText(input.missionTitle, 13, 2);
   ctx.font="900 44px sans-serif";
   titleLines.forEach((line, index) => ctx.fillText(line, 110, 315 + index * 54));
-  ctx.fillStyle="#a7bdcf"; ctx.font="500 23px sans-serif"; ctx.fillText(`${input.nickname} / KEY CRAFT 5000`, 112, titleLines.length > 1 ? 420 : 374);
+  ctx.fillStyle="#a7bdcf"; ctx.font="500 23px sans-serif"; ctx.fillText(`${input.nickname} / ${PRODUCT_NAME}`, 112, titleLines.length > 1 ? 420 : 374);
   if (building) {
     const glow = ctx.createRadialGradient(1045,420,40,1045,420,310); glow.addColorStop(0,"rgba(255,185,69,.22)"); glow.addColorStop(1,"rgba(255,185,69,0)"); ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(1045,420,310,0,Math.PI*2); ctx.fill();
     ctx.drawImage(building, 765, 155, 560, 560);
@@ -332,7 +333,7 @@ async function exportDistrictBoard(input: { filename: string; nickname: string; 
   titleText(ctx, "DISTRICT DEVELOPMENT BOARD", input.districtName, `${input.nickname} · ${input.completedHere}/10 CRAFTS COMPLETE`);
   const images = await Promise.all(premiumBuildings.slice(1,11).map((item)=>loadImage(item.image)));
   premiumBuildings.slice(1,11).forEach((building,index)=>{ const col=index%5,row=Math.floor(index/5),x=70+col*300,y=230+row*300; const unlocked=index<input.completedHere; const card=ctx.createLinearGradient(x,y,x,y+250); card.addColorStop(0,unlocked?"#123859":"#0c1620"); card.addColorStop(1,"#07101a"); ctx.fillStyle=card; roundedRect(ctx,x,y,260,250,24); ctx.fill(); ctx.strokeStyle=unlocked?"#4fc3f7":"#26384a"; ctx.lineWidth=3; ctx.stroke(); const image=images[index]; ctx.globalAlpha=unlocked?1:.18; if(image) ctx.drawImage(image,x+45,y+15,170,155); ctx.globalAlpha=1; ctx.fillStyle=unlocked?"#fff":"#54687a"; ctx.font="800 24px sans-serif"; ctx.fillText(building.name,x+22,y+195); ctx.font="600 17px sans-serif"; ctx.fillText(unlocked?"稼働中":"LOCKED",x+22,y+224); if(unlocked){ctx.fillStyle="#80dcff";ctx.beginPath();ctx.arc(x+230,y+28,8,0,Math.PI*2);ctx.fill();} });
-  ctx.fillStyle="#f0b640"; ctx.font="800 22px sans-serif"; ctx.fillText("KEY CRAFT 5000 · DISTRICT BUILD RECORD",70,850);
+  ctx.fillStyle="#f0b640"; ctx.font="800 22px sans-serif"; ctx.fillText(`${PRODUCT_NAME} · DISTRICT BUILD RECORD`,70,850);
   downloadCanvas(canvas,input.filename);
 }
 

@@ -10,6 +10,7 @@ const navItems = [
   { to: "/missions", label: "MISSION", icon: "✦" },
   { to: "/progress", label: "実績", icon: "★" },
   { to: "/deliverables", label: "成果物", icon: "◆" },
+  { to: "/endless", label: "無限", icon: "∞" },
   { to: "/settings", label: "設定", icon: "⚙" },
 ];
 
@@ -49,7 +50,7 @@ export function Layout() {
       <footer className="site-footer premium-site-footer">
         <Logo />
         <p>打つほど、世界ができていく。</p>
-        <small>KEY CRAFT 5000 / Premium World Build</small>
+        <small>KEY CRAFT 10000 / Premium World Build</small>
       </footer>
     </div>
   );

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { GameGate } from "../components/GameGate";
 import { RewardIcon } from "../components/RewardIcon";
 import { catalog, districtById } from "../content/catalog";
+import { PRODUCT_NAME, TOTAL_MISSIONS, TOTAL_PHRASES } from "../content/limits";
 import { usePlayer } from "../context/PlayerContext";
 import { isMissionAvailable, missionPhraseCount, nextIncompleteMission } from "../game/progress";
 
@@ -34,7 +35,7 @@ export function MissionsPage() {
   return (
     <div className="page missions-page section-pad">
       <header className="page-heading">
-        <div><p className="eyebrow">250 PURPOSEFUL MISSIONS</p><h1>MISSION</h1><p>すべてのMISSIONに、完成させる場所とクラフト報酬があります。</p></div>
+        <div><p className="eyebrow">{TOTAL_MISSIONS} PURPOSEFUL MISSIONS</p><h1>MISSION</h1><p>すべてのMISSIONに、完成させる場所とクラフト報酬があります。</p></div>
       </header>
 
       {recommended ? (
@@ -46,7 +47,7 @@ export function MissionsPage() {
       ) : (
         <section className="recommend-card all-clear-recommend">
           <RewardIcon id={catalog.missions[catalog.missions.length - 1]!.reward.id} kind={catalog.missions[catalog.missions.length - 1]!.reward.kind} size={88} />
-          <div><p className="eyebrow">ALL 250 COMPLETE</p><h2>KEY CRAFT 5000 完成！</h2><p>5,000フレーズと250 MISSIONをすべてクラフトしました。</p><span>完成済みMISSIONは何度でも練習できます。</span></div>
+          <div><p className="eyebrow">ALL {TOTAL_MISSIONS} COMPLETE</p><h2>{PRODUCT_NAME} 完成！</h2><p>{TOTAL_PHRASES.toLocaleString()}フレーズと{TOTAL_MISSIONS} MISSIONをすべてクラフトしました。</p><span>完成済みMISSIONは何度でも練習できます。</span></div>
           <Link className="button primary" to="/complete">完成記録を見る →</Link>
         </section>
       )}

@@ -3,6 +3,7 @@ import { GameGate } from "../components/GameGate";
 import { ProgressRing } from "../components/ProgressRing";
 import { RewardIcon } from "../components/RewardIcon";
 import { catalog, missionById } from "../content/catalog";
+import { TOTAL_DISTRICTS, TOTAL_MISSIONS, TOTAL_PHRASES } from "../content/limits";
 import { usePlayer } from "../context/PlayerContext";
 import { aggregateMissKeys, completedDistrictCount, nextIncompleteMission } from "../game/progress";
 
@@ -27,9 +28,9 @@ export function ProgressPage() {
       </header>
 
       <section className="stats-grid">
-        <article className="main-stat"><ProgressRing value={(phraseCount / 5000) * 100} label="WORLD" size={128} /><div><span>入力したフレーズ</span><strong>{phraseCount.toLocaleString()}<small> / 5,000</small></strong><p>ひとつずつ、世界が形になっています。</p></div></article>
-        <article><span className="stat-icon">◇</span><small>完成MISSION</small><strong>{missionCount}<em> / 250</em></strong></article>
-        <article><span className="stat-icon">▦</span><small>完成DISTRICT</small><strong>{districtCount}<em> / 25</em></strong></article>
+        <article className="main-stat"><ProgressRing value={(phraseCount / TOTAL_PHRASES) * 100} label="WORLD" size={128} /><div><span>入力したフレーズ</span><strong>{phraseCount.toLocaleString()}<small> / {TOTAL_PHRASES.toLocaleString()}</small></strong><p>ひとつずつ、世界が形になっています。</p></div></article>
+        <article><span className="stat-icon">◇</span><small>完成MISSION</small><strong>{missionCount}<em> / {TOTAL_MISSIONS}</em></strong></article>
+        <article><span className="stat-icon">▦</span><small>完成DISTRICT</small><strong>{districtCount}<em> / {TOTAL_DISTRICTS}</em></strong></article>
         <article><span className="stat-icon">◎</span><small>平均正確さ</small><strong>{accuracy.toFixed(1)}<em>%</em></strong></article>
         <article><span className="stat-icon">⌨</span><small>積み重ねた入力</small><strong>{keystrokes.toLocaleString()}<em> keys</em></strong></article>
       </section>

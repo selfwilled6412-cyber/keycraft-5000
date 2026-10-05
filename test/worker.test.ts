@@ -34,7 +34,7 @@ describe("Worker API + D1", () => {
   it("health endpointが応答する", async () => {
     const response = await request("/api/health");
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ ok: true, service: "keycraft-5000" });
+    expect(await response.json()).toMatchObject({ ok: true, service: "keycraft-5000", contentVersion: 4, totalMissions: 500, totalPhrases: 10_000 });
   });
 
   it("新規KEY IDを発行して同じIDで復元する", async () => {
@@ -107,6 +107,12 @@ describe("Worker API + D1", () => {
     expect(first).toMatchObject({ duplicate: false, completedCount: 1 });
     expect(second).toMatchObject({ duplicate: true, completedCount: 1 });
     expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM progress WHERE key_id = ?").bind(keyId).first<number>("count")).toBe(1);
+  });
+
+  it("MISSION 500まで受け付け、501以降は拒否する", async () => {
+    const keyId = await createKeyId();
+    expect((await request("/api/progress/phrase", "POST", { keyId, missionId: "m500", phraseId: "p500-20", accuracy: 100, keystrokes: 18, missKeys: {} })).status).toBe(200);
+    expect((await request("/api/progress/phrase", "POST", { keyId, missionId: "m501", phraseId: "p501-01", accuracy: 100, keystrokes: 18, missKeys: {} })).status).toBe(400);
   });
 
   it("20フレーズでMISSIONを一度だけ完成させ報酬を解放する", async () => {
