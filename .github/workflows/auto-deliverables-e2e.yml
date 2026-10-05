@@ -33,8 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler d1 execute keycraft-5000-db --local --file migrations/0001_initial_schema.sql -y
-          npx wrangler d1 execute keycraft-5000-db --local --file migrations/0002_deliverables.sql -y
+          npx wrangler d1 migrations apply keycraft-5000-db --local
           node --input-type=module <<'EOF' > /tmp/keycraft-autodeliverable-seed.sql
           const values = [];
           for (let i = 1; i <= 19; i += 1) {
