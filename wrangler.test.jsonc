@@ -11,5 +11,15 @@
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "./migrations"
     }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "DELIVERABLES_KV",
+      "id": "11111111111111111111111111111111"
+    },
+    {
+      "binding": "CHARACTERS_KV",
+      "id": "22222222222222222222222222222222"
+    }
   ]
 }

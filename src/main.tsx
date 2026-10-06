@@ -16,6 +16,7 @@ import "./premium-secondary.css";
 import "./premium-progress.css";
 import "./auto-deliverables.css";
 import "./endless.css";
+import "./character.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

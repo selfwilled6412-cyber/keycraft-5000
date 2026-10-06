@@ -19,10 +19,11 @@ const env = {
   SAI_COIN: smokeAssets,
   DB: {} as D1Database,
   DELIVERABLES_KV: {} as KVNamespace,
-} satisfies Env & { DELIVERABLES_KV: KVNamespace };
+  CHARACTERS_KV: {} as KVNamespace,
+} satisfies Env & { DELIVERABLES_KV: KVNamespace; CHARACTERS_KV: KVNamespace };
 const response = await worker.fetch(new Request("https://keycraft.test/api/health"), env, {} as ExecutionContext);
 if (!response.ok) throw new Error(`Health endpoint returned ${response.status}.`);
 const body = await response.json<{ ok: boolean; service: string; deliverables?: boolean }>();
 if (!body.ok || body.service !== "keycraft-5000" || body.deliverables !== true) throw new Error("Health endpoint payload is invalid.");
 
-console.log("Runtime smoke passed: dist/index.html + Worker /api/health + KV deliverables binding contract.");
+console.log("Runtime smoke passed: dist/index.html + Worker /api/health + KV deliverables/characters binding contract.");

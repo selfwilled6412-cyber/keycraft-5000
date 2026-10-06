@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { deleteCharacter, uploadCharacter } from "../api/client";
 import { GameGate } from "../components/GameGate";
 import { GENRES } from "../content/source";
 import type { AssistMode } from "../content/types";
@@ -11,7 +12,7 @@ const modes: Array<{ id: AssistMode; title: string; description: string; feature
 ];
 
 export function SettingsPage() {
-  const { session, savePreferences, savePin, signOut } = usePlayer();
+  const { session, refreshSession, savePreferences, savePin, signOut } = usePlayer();
   const [mode, setMode] = useState<AssistMode>(session?.preferences.assistMode ?? "beginner");
   const [genres, setGenres] = useState<string[]>(session?.preferences.genres ?? []);
   const [nickname, setNickname] = useState(session?.preferences.nickname ?? "");
@@ -19,13 +20,29 @@ export function SettingsPage() {
   const [pin, setPinValue] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
   const [pinStatus, setPinStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [characterName, setCharacterName] = useState(session?.character?.displayName ?? session?.preferences.nickname ?? "");
+  const [characterPin, setCharacterPin] = useState("");
+  const [characterFile, setCharacterFile] = useState<File | null>(null);
+  const [characterPreview, setCharacterPreview] = useState<string | null>(null);
+  const [characterStatus, setCharacterStatus] = useState<"idle" | "saving" | "saved" | "deleting" | "error">("idle");
+  const [characterMessage, setCharacterMessage] = useState("");
 
   useEffect(() => {
     if (!session) return;
     setMode(session.preferences.assistMode);
     setGenres(session.preferences.genres);
     setNickname(session.preferences.nickname ?? "");
+    setCharacterName(session.character?.displayName ?? session.preferences.nickname ?? "");
+    setCharacterPin("");
+    setCharacterFile(null);
+    setCharacterPreview(null);
+    setCharacterStatus("idle");
+    setCharacterMessage("");
   }, [session?.keyId]);
+
+  useEffect(() => () => {
+    if (characterPreview) URL.revokeObjectURL(characterPreview);
+  }, [characterPreview]);
 
   if (!session) return <GameGate title="設定を保存するKEY IDを作ろう" />;
 
@@ -58,6 +75,66 @@ export function SettingsPage() {
       setPinStatus("saved");
     } catch {
       setPinStatus("error");
+    }
+  };
+
+  const handleCharacterFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setCharacterStatus("idle");
+    setCharacterMessage("");
+    setCharacterFile(null);
+    setCharacterPreview(null);
+    if (!file) return;
+    if (file.type !== "image/png" && file.type !== "image/webp") {
+      setCharacterStatus("error");
+      setCharacterMessage("PNGまたはWebP画像を選んでください。");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCharacterStatus("error");
+      setCharacterMessage("画像は5MB以内にしてください。");
+      event.target.value = "";
+      return;
+    }
+    setCharacterFile(file);
+    setCharacterPreview(URL.createObjectURL(file));
+  };
+
+  const handleCharacterSave = async () => {
+    if (!characterFile || !characterName.trim() || !/^\d{4,8}$/.test(characterPin)) return;
+    setCharacterStatus("saving");
+    setCharacterMessage("");
+    try {
+      await uploadCharacter({ keyId: session.keyId, pin: characterPin, displayName: characterName, file: characterFile });
+      await refreshSession();
+      setCharacterPin("");
+      setCharacterFile(null);
+      setCharacterPreview(null);
+      setCharacterStatus("saved");
+      setCharacterMessage("マイキャラクターを登録しました。タイピング画面と次回の自動PNGへ反映されます。");
+    } catch (error) {
+      setCharacterStatus("error");
+      setCharacterMessage(error instanceof Error ? error.message : "キャラクターを登録できませんでした");
+    }
+  };
+
+  const handleCharacterDelete = async () => {
+    if (!session.character || !/^\d{4,8}$/.test(characterPin)) return;
+    if (!window.confirm("登録中のキャラクター画像を削除しますか？進捗と過去の成果物は消えません。")) return;
+    setCharacterStatus("deleting");
+    setCharacterMessage("");
+    try {
+      await deleteCharacter(session.keyId, characterPin);
+      await refreshSession();
+      setCharacterPin("");
+      setCharacterFile(null);
+      setCharacterPreview(null);
+      setCharacterStatus("saved");
+      setCharacterMessage("キャラクター登録を解除しました。進捗と過去の成果物はそのままです。");
+    } catch (error) {
+      setCharacterStatus("error");
+      setCharacterMessage(error instanceof Error ? error.message : "キャラクターを削除できませんでした");
     }
   };
 
@@ -95,6 +172,29 @@ export function SettingsPage() {
               {pinStatus === "error" && <span className="form-error" role="alert">PINを確認して、もう一度お試しください。</span>}
             </div>
           )}
+        </section>
+
+        <section className="settings-section panel character-settings">
+          <header><span>05</span><div><h2>マイキャラクター</h2><p>背景透過PNGまたはWebPを登録すると、利用者ごとにタイピング画面・拠点・自動PNG成果物へ登場します。</p></div><b>{session.character ? "登録済み" : "未登録"}</b></header>
+          <div className="character-settings-grid">
+            <div className={`character-preview ${characterPreview || session.character ? "has-image" : ""}`}>
+              {characterPreview || session.character ? <img src={characterPreview ?? session.character?.imageUrl} alt={characterName || "マイキャラクター"} /> : <div><span>＋</span><b>CHARACTER</b><small>透過画像がおすすめ</small></div>}
+            </div>
+            <div className="character-fields">
+              <label htmlFor="character-name">キャラクター名 <small>40文字まで</small></label>
+              <input id="character-name" value={characterName} maxLength={40} onChange={(event) => { setCharacterName(event.target.value); setCharacterStatus("idle"); }} placeholder="例：コハク" />
+              <label className="character-file-button" htmlFor="character-file">画像を選ぶ <small>PNG / WebP・5MB以内</small></label>
+              <input id="character-file" className="character-file-input" type="file" accept="image/png,image/webp,.png,.webp" onChange={handleCharacterFile} />
+              <label htmlFor="character-pin">確認用PIN</label>
+              <input id="character-pin" type="password" inputMode="numeric" autoComplete="current-password" value={characterPin} onChange={(event) => { setCharacterPin(event.target.value.replace(/\D/g, "").slice(0, 8)); setCharacterStatus("idle"); }} placeholder="アカウントPIN" />
+              {!session.hasPin && <p className="character-help">先に「04 アカウントPIN」を設定してください。</p>}
+              <div className="character-buttons">
+                <button className="button secondary" type="button" onClick={() => void handleCharacterSave()} disabled={!session.hasPin || !characterFile || !characterName.trim() || !/^\d{4,8}$/.test(characterPin) || characterStatus === "saving" || characterStatus === "deleting"}>{characterStatus === "saving" ? "登録中…" : session.character ? "画像を差し替える" : "キャラクターを登録"}</button>
+                {session.character && <button className="button danger" type="button" onClick={() => void handleCharacterDelete()} disabled={!/^\d{4,8}$/.test(characterPin) || characterStatus === "saving" || characterStatus === "deleting"}>{characterStatus === "deleting" ? "解除中…" : "登録を解除"}</button>}
+              </div>
+              {characterMessage && <p className={characterStatus === "error" ? "form-error" : "character-success"} role={characterStatus === "error" ? "alert" : "status"}>{characterMessage}</p>}
+            </div>
+          </div>
         </section>
 
         <div className="settings-actions"><button className="button primary large" type="submit" disabled={status === "saving"}>{status === "saving" ? "保存中…" : status === "saved" ? "保存しました ✓" : "設定を保存する"}</button>{status === "error" && <span role="alert">保存できませんでした。通信を確認してください。</span>}</div>

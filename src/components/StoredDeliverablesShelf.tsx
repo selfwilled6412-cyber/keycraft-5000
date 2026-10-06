@@ -105,6 +105,8 @@ export function StoredDeliverablesShelf() {
               mission,
               completedMissionIdsBefore: completedBefore,
               completedPhrasesAfter,
+              characterImageUrl: session.character?.imageUrl,
+              characterName: session.character?.displayName,
               wantedEventKeys: plan.expectedKeys,
             });
             for (const artifact of generated) {

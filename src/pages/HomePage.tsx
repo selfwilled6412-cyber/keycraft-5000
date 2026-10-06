@@ -79,10 +79,11 @@ export function HomePage() {
   return (
     <div className="premium-command-page">
       <PremiumSettlement completedMissions={completedMissions} completedPhrases={completedPhrases} nickname={session?.preferences.nickname} />
+      {session?.character && <div className="premium-my-character"><img src={session.character.imageUrl} alt={session.character.displayName} /><span><small>MY CHARACTER</small><b>{session.character.displayName}</b></span></div>}
 
       <section className="premium-top-hud">
         <button type="button" className="premium-player-badge" onClick={() => setLookupOpen(true)}>
-          <span className="premium-avatar-ring"><img src={premiumHeroes[0]!.image} alt="" crossOrigin="anonymous" /></span>
+          <span className="premium-avatar-ring"><img src={session?.character?.imageUrl ?? premiumHeroes[0]!.image} alt={session?.character?.displayName ?? ""} crossOrigin="anonymous" /></span>
           <span><b>{session?.preferences.nickname ?? "NEW COMMANDER"}</b><small>LV.{String(level).padStart(2, "0")} · {completedPhrases.toLocaleString()} / {TOTAL_PHRASES.toLocaleString()}</small></span>
         </button>
         <div className="premium-resource"><span>🔥</span><b>{(completedPhrases * 9 + 320).toLocaleString()}</b><small>+{level * 8}/分</small></div>

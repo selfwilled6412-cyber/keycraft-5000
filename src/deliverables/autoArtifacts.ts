@@ -22,6 +22,8 @@ interface AutoArtifactInput {
   mission: Mission;
   completedMissionIdsBefore: string[];
   completedPhrasesAfter: number;
+  characterImageUrl?: string;
+  characterName?: string;
   wantedEventKeys?: readonly string[];
 }
 
@@ -62,6 +64,13 @@ function drawCover(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: nu
   const sw = w / scale;
   const sh = h / scale;
   ctx.drawImage(image, (image.width - sw) / 2, (image.height - sh) / 2, sw, sh, x, y, w, h);
+}
+
+function drawContain(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const scale = Math.min(w / image.width, h / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  ctx.drawImage(image, x + (w - width) / 2, y + (h - height) / 2, width, height);
 }
 
 function drawSnow(ctx: CanvasRenderingContext2D, count = 110) {
@@ -190,6 +199,22 @@ async function makeSettlement(input: AutoArtifactInput, completedAfter: string[]
     ctx.restore();
   });
 
+  const playerCharacter = input.characterImageUrl ? await loadImage(input.characterImageUrl) : null;
+  if (playerCharacter) {
+    ctx.fillStyle = "rgba(3,13,22,.9)";
+    roundedRect(ctx, 1370, 535, 170, 275, 25);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,197,79,.8)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    drawContain(ctx, playerCharacter, 1382, 550, 146, 205);
+    ctx.fillStyle = "#ffc34f";
+    ctx.font = "800 17px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText((input.characterName ?? "MY CHARACTER").slice(0, 16), 1455, 786);
+    ctx.textAlign = "start";
+  }
+
   const panel = ctx.createLinearGradient(0, 0, 690, 0);
   panel.addColorStop(0, "rgba(3,9,16,.99)");
   panel.addColorStop(.8, "rgba(4,13,23,.92)");
@@ -266,13 +291,25 @@ async function makeMissionClear(input: AutoArtifactInput, completedAfter: string
   const building = await loadImage(premiumBuildings[Math.min(premiumBuildings.length - 1, Math.max(1, input.mission.number % premiumBuildings.length))]!.image);
   if (building) ctx.drawImage(building, 730, 120, 625, 625);
   const hero = premiumHeroes.filter((item) => completedAfter.length >= item.unlockMission).at(-1);
-  const heroImage = hero ? await loadImage(hero.image) : null;
+  const heroImage = input.characterImageUrl ? await loadImage(input.characterImageUrl) : hero ? await loadImage(hero.image) : null;
   if (heroImage) {
+    ctx.fillStyle = "rgba(3,12,20,.88)";
+    roundedRect(ctx, 1260, 475, 230, 330, 29);
+    ctx.fill();
+    ctx.strokeStyle = input.characterImageUrl ? "#f4b83f" : "#4f7896";
+    ctx.lineWidth = 3;
+    ctx.stroke();
     ctx.save();
-    roundedRect(ctx, 1280, 505, 190, 255, 25);
+    roundedRect(ctx, 1280, 495, 190, 255, 25);
     ctx.clip();
-    drawCover(ctx, heroImage, 1280, 505, 190, 255);
+    if (input.characterImageUrl) drawContain(ctx, heroImage, 1280, 495, 190, 255);
+    else drawCover(ctx, heroImage, 1280, 495, 190, 255);
     ctx.restore();
+    ctx.fillStyle = input.characterImageUrl ? "#f4b83f" : "#75d9ff";
+    ctx.font = "800 18px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText((input.characterName ?? hero?.name ?? "CITY CREW").slice(0, 18), 1375, 780);
+    ctx.textAlign = "start";
   }
 
   ctx.fillStyle = "rgba(3,9,16,.96)";
@@ -392,7 +429,7 @@ export async function createAutomaticMissionArtifacts(input: AutoArtifactInput):
       kind: "current_settlement",
       eventKey: "current-settlement",
       filename: `KEYCRAFT_${player}_CURRENT_SETTLEMENT.png`,
-      metadata: { missionId: input.mission.id, missionNumber: input.mission.number, completedMissions: completedAfter.length, completedPhrases: input.completedPhrasesAfter, districtId: input.mission.districtId },
+      metadata: { missionId: input.mission.id, missionNumber: input.mission.number, completedMissions: completedAfter.length, completedPhrases: input.completedPhrasesAfter, districtId: input.mission.districtId, character: Boolean(input.characterImageUrl) },
       blob,
     })));
   }
@@ -403,7 +440,7 @@ export async function createAutomaticMissionArtifacts(input: AutoArtifactInput):
       kind: "mission_clear",
       eventKey: missionEventKey,
       filename: `KEYCRAFT_${player}_${date}_MISSION${missionNo}_CLEAR.png`,
-      metadata: { missionId: input.mission.id, missionNumber: input.mission.number, title: input.mission.title, reward: input.mission.reward.name, districtId: input.mission.districtId },
+      metadata: { missionId: input.mission.id, missionNumber: input.mission.number, title: input.mission.title, reward: input.mission.reward.name, districtId: input.mission.districtId, character: Boolean(input.characterImageUrl), characterName: input.characterName },
       blob,
     })));
   }

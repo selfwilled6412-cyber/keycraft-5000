@@ -170,6 +170,8 @@ export function PlayPage() {
         mission,
         completedMissionIdsBefore: session.completedMissionIds,
         completedPhrasesAfter,
+        characterImageUrl: session.character?.imageUrl,
+        characterName: session.character?.displayName,
       });
 
       const uploadWithRetry = async (artifact: (typeof artifacts)[number]) => {
@@ -319,6 +321,7 @@ export function PlayPage() {
 
         <aside className="reward-preview">
           <p className="eyebrow">THIS MISSION CRAFTS</p>
+          {session.character && <div className="typing-character"><img src={session.character.imageUrl} alt={session.character.displayName} /><span><small>MY CHARACTER</small><b>{session.character.displayName}</b></span></div>}
           <RewardIcon id={mission.reward.id} kind={mission.reward.kind} locked={!missionComplete && !missionWasAlreadyCompleted} size={126} />
           <h2>{mission.reward.name}</h2>
           <p>{mission.description}</p>

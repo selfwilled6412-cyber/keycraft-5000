@@ -7,6 +7,7 @@ const PHRASE_ID_PATTERN = /^p(\d{3})-(\d{2})$/;
 const KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DELIVERABLE_EVENT_PATTERN = /^[a-z0-9:_-]{1,96}$/i;
 const MAX_DELIVERABLE_BYTES = 8 * 1024 * 1024;
+const MAX_CHARACTER_BYTES = 5 * 1024 * 1024;
 const PIN_HASH_ITERATIONS = 100_000;
 const PIN_MAX_FAILURES = 5;
 const PIN_LOCK_MINUTES = 15;
@@ -33,9 +34,10 @@ export interface DeliverablesStore {
     body: ReadableStream<Uint8Array>;
     size: number;
   }>;
+  delete(key: string): Promise<unknown>;
 }
 
-export type AppEnv = Env & { DELIVERABLES: DeliverablesStore };
+export type AppEnv = Env & { DELIVERABLES: DeliverablesStore; CHARACTERS: DeliverablesStore };
 
 class HttpError extends Error {
   constructor(readonly status: number, message: string) {
@@ -171,6 +173,15 @@ function parseNickname(value: unknown): string {
   return nickname;
 }
 
+interface CharacterRow {
+  key_id: string;
+  display_name: string;
+  object_key: string;
+  content_type: "image/png" | "image/webp";
+  byte_size: number;
+  updated_at: string;
+}
+
 function parsePin(value: unknown): string {
   const pin = typeof value === "string" ? value.trim() : "";
   if (!PIN_PATTERN.test(pin)) throw new HttpError(400, "PINは4〜8桁の数字で入力してください");
@@ -304,6 +315,37 @@ async function searchUsers(request: Request, env: AppEnv): Promise<Response> {
   return json({ matches });
 }
 
+async function requireVerifiedPin(env: AppEnv, keyId: string, rawPin: unknown): Promise<void> {
+  const row = await env.DB.prepare(`
+    SELECT key_id, pin_salt, pin_hash, pin_iterations, pin_failed_attempts, pin_locked_until
+    FROM users WHERE key_id = ?
+  `).bind(keyId).first<LoginRow>();
+  if (!row) throw new HttpError(404, "KEY IDが見つかりません");
+  if (!row.pin_hash) throw new HttpError(409, "先にアカウントPINを設定してください");
+
+  const now = Date.now();
+  const lockedUntil = row.pin_locked_until ? Date.parse(`${row.pin_locked_until.replace(" ", "T")}Z`) : Number.NaN;
+  if (Number.isFinite(lockedUntil) && lockedUntil > now) {
+    throw new HttpError(429, "PIN入力が一時停止中です。15分後にもう一度お試しください");
+  }
+  const attemptsBefore = Number.isFinite(lockedUntil) && lockedUntil <= now ? 0 : Number(row.pin_failed_attempts) || 0;
+  const pin = parsePin(rawPin);
+  if (!await verifyPin(pin, row)) {
+    const attempts = attemptsBefore + 1;
+    const lockUntil = attempts >= PIN_MAX_FAILURES
+      ? new Date(now + PIN_LOCK_MINUTES * 60_000).toISOString().replace("T", " ").slice(0, 19)
+      : null;
+    await env.DB.prepare("UPDATE users SET pin_failed_attempts = ?, pin_locked_until = ? WHERE key_id = ?")
+      .bind(attempts, lockUntil, keyId)
+      .run();
+    if (lockUntil) throw new HttpError(429, "PINを5回間違えたため、15分間入力を停止しました");
+    throw new HttpError(401, `PINが違います。あと${PIN_MAX_FAILURES - attempts}回入力できます`);
+  }
+  await env.DB.prepare("UPDATE users SET pin_failed_attempts = 0, pin_locked_until = NULL WHERE key_id = ?")
+    .bind(keyId)
+    .run();
+}
+
 async function loginUser(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
@@ -360,17 +402,19 @@ async function getSession(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const keyId = parseKeyId(body.keyId);
-  const [userResult, preferenceResult, progressResult, missionResult] = await env.DB.batch([
+  const [userResult, preferenceResult, progressResult, missionResult, characterResult] = await env.DB.batch([
     env.DB.prepare("SELECT key_id, nickname, created_at, pin_hash FROM users WHERE key_id = ?").bind(keyId),
     env.DB.prepare("SELECT assist_mode, genres_json FROM preferences WHERE key_id = ?").bind(keyId),
     env.DB.prepare("SELECT phrase_id, mission_id, accuracy, keystrokes, miss_keys_json, completed_at FROM progress WHERE key_id = ? ORDER BY completed_at").bind(keyId),
     env.DB.prepare("SELECT mission_id FROM mission_completions WHERE key_id = ? ORDER BY completed_at").bind(keyId),
+    env.DB.prepare("SELECT key_id, display_name, object_key, content_type, byte_size, updated_at FROM player_characters WHERE key_id = ?").bind(keyId),
   ]);
   const user = userResult?.results[0] as UserRow | undefined;
   if (!user) throw new HttpError(404, "KEY IDが見つかりません");
   const preferences = preferenceResult?.results[0] as PreferenceRow | undefined;
   const progress = (progressResult?.results ?? []).filter(isProgressRow);
   const completed = (missionResult?.results ?? []).filter(isMissionCompletionRow);
+  const character = characterResult?.results[0] as CharacterRow | undefined;
   await env.DB.prepare("UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE key_id = ?").bind(keyId).run();
 
   return json({
@@ -391,7 +435,18 @@ async function getSession(request: Request, env: AppEnv): Promise<Response> {
       completedAt: row.completed_at,
     })),
     completedMissionIds: completed.map((row) => row.mission_id),
+    character: character ? serializeCharacter(character) : null,
   });
+}
+
+function serializeCharacter(row: CharacterRow) {
+  return {
+    displayName: row.display_name,
+    imageUrl: `/api/characters/image/${encodeURIComponent(row.key_id)}?v=${encodeURIComponent(row.updated_at)}`,
+    contentType: row.content_type,
+    byteSize: Number(row.byte_size) || 0,
+    updatedAt: row.updated_at,
+  };
 }
 
 const safelyParseGenres = (value: string | undefined): string[] => {
@@ -481,6 +536,116 @@ async function savePhrase(request: Request, env: AppEnv): Promise<Response> {
     missionCompleted: (results[1]?.meta.changes ?? 0) > 0,
     completedCount: completedCount ?? 0,
   });
+}
+
+function parseCharacterName(value: FormDataEntryValue | null): string {
+  const name = typeof value === "string" ? value.trim() : "";
+  if (!name) throw new HttpError(400, "キャラクター名を入力してください");
+  if (name.length > 40) throw new HttpError(400, "キャラクター名は40文字以内です");
+  return name;
+}
+
+function hasValidCharacterSignature(bytes: Uint8Array, contentType: string): boolean {
+  if (contentType === "image/png") {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    return bytes.length >= signature.length && signature.every((value, index) => bytes[index] === value);
+  }
+  return bytes.length >= 12
+    && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+}
+
+async function saveCharacter(request: Request, env: AppEnv): Promise<Response> {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_CHARACTER_BYTES + 32_768) {
+    throw new HttpError(413, "キャラクター画像が大きすぎます");
+  }
+  if (!request.headers.get("content-type")?.includes("multipart/form-data")) {
+    throw new HttpError(415, "キャラクター画像はmultipart/form-dataで送信してください");
+  }
+
+  const form = await request.formData();
+  const keyId = parseKeyId(form.get("keyId"));
+  const displayName = parseCharacterName(form.get("displayName"));
+  await requireVerifiedPin(env, keyId, form.get("pin"));
+  const file = form.get("file");
+  if (!(file instanceof File)) throw new HttpError(400, "キャラクター画像がありません");
+  if (file.type !== "image/png" && file.type !== "image/webp") {
+    throw new HttpError(415, "キャラクター画像はPNGまたはWebP形式にしてください");
+  }
+  if (file.size < 8 || file.size > MAX_CHARACTER_BYTES) {
+    throw new HttpError(413, "キャラクター画像のサイズが不正です");
+  }
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  if (!hasValidCharacterSignature(bytes, file.type)) {
+    throw new HttpError(415, "画像ファイルの内容を確認できませんでした");
+  }
+
+  const previous = await env.DB.prepare("SELECT object_key FROM player_characters WHERE key_id = ?")
+    .bind(keyId)
+    .first<{ object_key: string }>();
+  const extension = file.type === "image/webp" ? "webp" : "png";
+  const objectKey = `characters/${keyId}/${crypto.randomUUID()}.${extension}`;
+  const updatedAt = new Date().toISOString();
+  await env.CHARACTERS.put(objectKey, buffer, {
+    httpMetadata: { contentType: file.type },
+    customMetadata: { keyId },
+  });
+  try {
+    await env.DB.prepare(`
+      INSERT INTO player_characters (key_id, display_name, object_key, content_type, byte_size, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(key_id) DO UPDATE SET
+        display_name = excluded.display_name,
+        object_key = excluded.object_key,
+        content_type = excluded.content_type,
+        byte_size = excluded.byte_size,
+        updated_at = excluded.updated_at
+    `).bind(keyId, displayName, objectKey, file.type, file.size, updatedAt).run();
+  } catch (error) {
+    await env.CHARACTERS.delete(objectKey);
+    throw error;
+  }
+  if (previous?.object_key && previous.object_key !== objectKey) {
+    await env.CHARACTERS.delete(previous.object_key);
+  }
+  const row = await env.DB.prepare("SELECT key_id, display_name, object_key, content_type, byte_size, updated_at FROM player_characters WHERE key_id = ?")
+    .bind(keyId)
+    .first<CharacterRow>();
+  if (!row) throw new HttpError(500, "キャラクター情報を保存できませんでした");
+  return json({ saved: true, character: serializeCharacter(row) }, { status: 201 });
+}
+
+async function deleteCharacter(request: Request, env: AppEnv): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
+  const keyId = parseKeyId(body.keyId);
+  await requireVerifiedPin(env, keyId, body.pin);
+  const row = await env.DB.prepare("SELECT object_key FROM player_characters WHERE key_id = ?")
+    .bind(keyId)
+    .first<{ object_key: string }>();
+  if (!row) return json({ deleted: false });
+  await env.DB.prepare("DELETE FROM player_characters WHERE key_id = ?").bind(keyId).run();
+  await env.CHARACTERS.delete(row.object_key);
+  return json({ deleted: true });
+}
+
+async function getCharacterImage(env: AppEnv, rawKeyId: string): Promise<Response> {
+  const keyId = parseKeyId(rawKeyId);
+  const row = await env.DB.prepare("SELECT object_key, content_type, byte_size FROM player_characters WHERE key_id = ?")
+    .bind(keyId)
+    .first<Pick<CharacterRow, "object_key" | "content_type" | "byte_size">>();
+  if (!row) throw new HttpError(404, "キャラクター画像が見つかりません");
+  const object = await env.CHARACTERS.get(row.object_key);
+  if (!object) throw new HttpError(404, "キャラクター画像が見つかりません");
+  const headers = new Headers();
+  headers.set("Content-Type", row.content_type);
+  headers.set("Content-Length", String(object.size));
+  headers.set("Cache-Control", "public, max-age=3600");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
+  return new Response(object.body, { headers });
 }
 
 function parseDeliverableMetadata(value: FormDataEntryValue | null): string {
@@ -629,7 +794,7 @@ async function getDeliverableFile(request: Request, env: AppEnv, id: string): Pr
 async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === "/api/health" && request.method === "GET") {
-    return json({ ok: true, service: "keycraft-5000", contentVersion: 4, totalMissions: TOTAL_MISSIONS, totalPhrases: TOTAL_PHRASES, deliverables: true, accountPin: true });
+    return json({ ok: true, service: "keycraft-5000", contentVersion: 4, totalMissions: TOTAL_MISSIONS, totalPhrases: TOTAL_PHRASES, deliverables: true, accountPin: true, playerCharacters: true });
   }
   if (pathname === "/api/users" && request.method === "POST") return createUser(request, env);
   if (pathname === "/api/users/search" && request.method === "POST") return searchUsers(request, env);
@@ -638,6 +803,10 @@ async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   if (pathname === "/api/session" && request.method === "POST") return getSession(request, env);
   if (pathname === "/api/preferences" && request.method === "PUT") return updatePreferences(request, env);
   if (pathname === "/api/progress/phrase" && request.method === "POST") return savePhrase(request, env);
+  if (pathname === "/api/characters" && request.method === "POST") return saveCharacter(request, env);
+  if (pathname === "/api/characters" && request.method === "DELETE") return deleteCharacter(request, env);
+  const characterMatch = /^\/api\/characters\/image\/([^/]+)$/.exec(pathname);
+  if (characterMatch && request.method === "GET") return getCharacterImage(env, decodeURIComponent(characterMatch[1] ?? ""));
   if (pathname === "/api/deliverables" && request.method === "POST") return saveDeliverable(request, env);
   if (pathname === "/api/deliverables/list" && request.method === "POST") return listDeliverables(request, env);
   const fileMatch = /^\/api\/deliverables\/file\/([^/]+)$/.exec(pathname);

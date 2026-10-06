@@ -52,6 +52,27 @@ export async function putPin(keyId: string, pin: string): Promise<{ saved: boole
   return apiRequest("/api/users/pin", { method: "PUT", body: JSON.stringify({ keyId, pin }) });
 }
 
+export async function uploadCharacter(input: {
+  keyId: string;
+  pin: string;
+  displayName: string;
+  file: File;
+}): Promise<{ saved: boolean }> {
+  const form = new FormData();
+  form.set("keyId", input.keyId);
+  form.set("pin", input.pin);
+  form.set("displayName", input.displayName.trim());
+  form.set("file", input.file, input.file.name);
+  const response = await fetch("/api/characters", { method: "POST", body: form });
+  const data = (await response.json()) as { saved?: boolean; error?: string };
+  if (!response.ok) throw new Error(data.error ?? "キャラクターを登録できませんでした");
+  return { saved: Boolean(data.saved) };
+}
+
+export async function deleteCharacter(keyId: string, pin: string): Promise<{ deleted: boolean }> {
+  return apiRequest("/api/characters", { method: "DELETE", body: JSON.stringify({ keyId, pin }) });
+}
+
 export interface SavePhraseInput {
   keyId: string;
   phraseId: string;

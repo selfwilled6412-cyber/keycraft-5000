@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createExecutionContext, env } from "cloudflare:test";
-import worker from "../worker";
+import worker from "../worker/index-kv";
 
 const request = async (path: string, method = "GET", body?: unknown): Promise<Response> => {
   const ctx = createExecutionContext();
@@ -23,7 +23,21 @@ const setNickname = async (keyId: string, nickname: string): Promise<void> => {
   expect(response.status).toBe(200);
 };
 
+const characterRequest = async (keyId: string, pin: string, file: File, displayName = "コハク"): Promise<Response> => {
+  const form = new FormData();
+  form.set("keyId", keyId);
+  form.set("pin", pin);
+  form.set("displayName", displayName);
+  form.set("file", file, file.name);
+  return worker.fetch(new Request("https://keycraft.test/api/characters", { method: "POST", body: form }), env, createExecutionContext());
+};
+
+const tinyPng = () => new File([
+  new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
+], "character.png", { type: "image/png" });
+
 beforeEach(async () => {
+  await env.DB.prepare("DELETE FROM player_characters").run();
   await env.DB.prepare("DELETE FROM mission_completions").run();
   await env.DB.prepare("DELETE FROM progress").run();
   await env.DB.prepare("DELETE FROM preferences").run();
@@ -150,5 +164,39 @@ describe("Worker API + D1", () => {
     expect(response.status).toBe(200);
     const session = await (await request("/api/session", "POST", { keyId })).json<{ preferences: unknown }>();
     expect(session.preferences).toEqual({ assistMode: "normal", genres: ["宇宙", "科学", "パソコン"], nickname: "クラフター" });
+  });
+
+  it("PIN確認後に利用者別キャラクターをKVへ保存してセッションと画像から復元する", async () => {
+    const keyId = await createKeyId("キャラクター利用者", "8642");
+    const saved = await characterRequest(keyId, "8642", tinyPng());
+    expect(saved.status).toBe(201);
+    expect(await saved.json()).toMatchObject({ saved: true, character: { displayName: "コハク", contentType: "image/png", byteSize: 9 } });
+
+    const session = await (await request("/api/session", "POST", { keyId })).json<{ character: { displayName: string; imageUrl: string } | null }>();
+    expect(session.character?.displayName).toBe("コハク");
+    expect(session.character?.imageUrl).toContain(`/api/characters/image/${keyId}?v=`);
+    const image = await request(session.character!.imageUrl);
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/png");
+    expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]));
+  });
+
+  it("キャラクター登録は誤ったPINと偽装画像を拒否する", async () => {
+    const keyId = await createKeyId("保護利用者", "8642");
+    expect((await characterRequest(keyId, "1111", tinyPng())).status).toBe(401);
+    const fake = new File([new TextEncoder().encode("not really a png")], "fake.png", { type: "image/png" });
+    expect((await characterRequest(keyId, "8642", fake)).status).toBe(415);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM player_characters WHERE key_id = ?").bind(keyId).first<number>("count")).toBe(0);
+  });
+
+  it("キャラクター登録だけをPIN確認付きで解除し進捗は維持する", async () => {
+    const keyId = await createKeyId("解除利用者", "8642");
+    expect((await characterRequest(keyId, "8642", tinyPng())).status).toBe(201);
+    await request("/api/progress/phrase", "POST", { keyId, missionId: "m001", phraseId: "p001-01", accuracy: 100, keystrokes: 10, missKeys: {} });
+    expect((await request("/api/characters", "DELETE", { keyId, pin: "1111" })).status).toBe(401);
+    expect((await request("/api/characters", "DELETE", { keyId, pin: "8642" })).status).toBe(200);
+    const restored = await (await request("/api/session", "POST", { keyId })).json<{ character: unknown; progress: unknown[] }>();
+    expect(restored.character).toBeNull();
+    expect(restored.progress).toHaveLength(1);
   });
 });

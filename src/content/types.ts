@@ -90,11 +90,20 @@ export interface PhraseProgress {
   missKeys: Record<string, number>;
 }
 
+export interface PlayerCharacter {
+  displayName: string;
+  imageUrl: string;
+  contentType: "image/png" | "image/webp";
+  byteSize: number;
+  updatedAt: string;
+}
+
 export interface PlayerSession {
   keyId: string;
   hasPin: boolean;
   preferences: PlayerPreferences;
   progress: PhraseProgress[];
   completedMissionIds: string[];
+  character: PlayerCharacter | null;
   createdAt: string;
 }

@@ -1,6 +1,6 @@
 import worker, { type AppEnv } from "./index";
 
-type KvEnv = Env & { DELIVERABLES_KV: KVNamespace };
+type KvEnv = Env & { DELIVERABLES_KV: KVNamespace; CHARACTERS_KV: KVNamespace };
 
 type R2LikePutOptions = {
   httpMetadata?: { contentType?: string };
@@ -23,7 +23,7 @@ async function toArrayBuffer(value: unknown): Promise<ArrayBuffer> {
   throw new TypeError("Unsupported deliverable body type");
 }
 
-class KvBackedDeliverables {
+class KvBackedObjects {
   constructor(private readonly kv: KVNamespace) {}
 
   async put(key: string, value: unknown, options?: R2LikePutOptions): Promise<void> {
@@ -48,13 +48,18 @@ class KvBackedDeliverables {
       customMetadata: result.metadata?.customMetadata ?? {},
     };
   }
+
+  async delete(key: string): Promise<void> {
+    await this.kv.delete(key);
+  }
 }
 
 export default {
   async fetch(request: Request, env: KvEnv, context: ExecutionContext): Promise<Response> {
     const adaptedEnv: AppEnv = {
       ...env,
-      DELIVERABLES: new KvBackedDeliverables(env.DELIVERABLES_KV),
+      DELIVERABLES: new KvBackedObjects(env.DELIVERABLES_KV),
+      CHARACTERS: new KvBackedObjects(env.CHARACTERS_KV),
     };
     return worker.fetch(request, adaptedEnv, context);
   },

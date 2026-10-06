@@ -11,6 +11,7 @@ interface PlayerContextValue {
   error: string | null;
   startNew: (nickname: string, pin: string) => Promise<PlayerSession>;
   continueWith: (keyId: string) => Promise<PlayerSession>;
+  refreshSession: () => Promise<PlayerSession>;
   savePhrase: (input: Omit<SavePhraseInput, "keyId">) => Promise<SavePhraseResult>;
   savePreferences: (preferences: PlayerPreferences) => Promise<void>;
   savePin: (pin: string) => Promise<void>;
@@ -36,6 +37,7 @@ function buildVisualReviewSession(): PlayerSession {
       missKeys: {},
     })),
     completedMissionIds: completedMissions.map((mission) => mission.id),
+    character: null,
     createdAt: "2026-08-20T00:00:00.000Z",
   };
 }
@@ -146,6 +148,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setSession((current) => current ? { ...current, hasPin: true } : current);
   }, [session]);
 
+  const refreshSession = useCallback(async () => {
+    if (!session) throw new Error("KEY IDがありません");
+    const loaded = await fetchSession(session.keyId);
+    setSession(loaded);
+    return loaded;
+  }, [session]);
+
   const signOut = useCallback(() => {
     window.localStorage.removeItem(LAST_KEY_ID);
     setSession(null);
@@ -158,12 +167,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     error,
     startNew,
     continueWith,
+    refreshSession,
     savePhrase,
     savePreferences,
     savePin,
     signOut,
     clearError: () => setError(null),
-  }), [session, loading, error, startNew, continueWith, savePhrase, savePreferences, savePin, signOut]);
+  }), [session, loading, error, startNew, continueWith, refreshSession, savePhrase, savePreferences, savePin, signOut]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
