@@ -24,8 +24,6 @@ export function PlayerLookupDialog({
   const [nickname, setNickname] = useState("");
   const [keyId, setKeyId] = useState("");
   const [matches, setMatches] = useState<PlayerLookupMatch[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<PlayerLookupMatch | null>(null);
-  const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -34,17 +32,11 @@ export function PlayerLookupDialog({
     nameInputRef.current?.focus();
   }, []);
 
-  const continueWithMatch = async (match: PlayerLookupMatch, selectedPin?: string) => {
-    if (match.hasPin && !selectedPin) {
-      setSelectedMatch(match);
-      setPin("");
-      setError(null);
-      return;
-    }
+  const continueWithMatch = async (match: PlayerLookupMatch) => {
     setBusy(true);
     setError(null);
     try {
-      const result = await loginPlayer(match.accountRef, selectedPin);
+      const result = await loginPlayer(match.accountRef);
       await onSelect(result.keyId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "利用者を読み込めませんでした");
@@ -85,18 +77,10 @@ export function PlayerLookupDialog({
     }
   };
 
-  const handlePinSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedMatch || !/^\d{4,8}$/.test(pin)) return;
-    await continueWithMatch(selectedMatch, pin);
-  };
-
   const changeMode = (nextMode: "name" | "key") => {
     setMode(nextMode);
     setError(null);
     setMatches([]);
-    setSelectedMatch(null);
-    setPin("");
   };
 
   return (
@@ -136,21 +120,14 @@ export function PlayerLookupDialog({
               <div className="player-match-list" aria-label="同じ名前の候補">
                 <p>{matches.length === 1 ? "見つかった利用者です。" : `同じ名前が ${matches.length} 人います。進み具合を見て選んでください。`}</p>
                 {matches.map((match) => (
-                  <button key={match.accountRef} type="button" className={selectedMatch?.accountRef === match.accountRef ? "selected" : ""} onClick={() => void continueWithMatch(match)} disabled={busy}>
-                    <span><strong>{match.nickname}</strong><small>KEY ID …{match.keySuffix} · {match.hasPin ? "PIN保護" : "旧アカウント"}</small></span>
+                  <button key={match.accountRef} type="button" onClick={() => void continueWithMatch(match)} disabled={busy}>
+                    <span><strong>{match.nickname}</strong><small>KEY ID …{match.keySuffix} · PIN不要</small></span>
                     <span><b>{match.completedPhrases}</b> フレーズ / <b>{match.completedMissions}</b> MISSION</span>
                   </button>
                 ))}
               </div>
             )}
 
-            {selectedMatch && (
-              <form className="lookup-pin-form" onSubmit={(event) => void handlePinSubmit(event)}>
-                <label htmlFor="lookup-player-pin">{selectedMatch.nickname} のPIN</label>
-                <input id="lookup-player-pin" autoFocus type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="4〜8桁" />
-                <button className="button primary" type="submit" disabled={busy || !/^\d{4,8}$/.test(pin)}>{busy ? "確認中…" : "PINで続ける"}</button>
-              </form>
-            )}
           </>
         ) : (
           <form onSubmit={(event) => void handleKeySubmit(event)}>
@@ -171,7 +148,7 @@ export function PlayerLookupDialog({
           {mode === "name" ? "名前未登録の方は KEY IDで探す" : "← 名前で探す"}
         </button>
         {onStartNew && <button className="lookup-new-player" type="button" onClick={onStartNew} disabled={busy}>＋ 新しい利用者を作る</button>}
-        {mode === "name" && <small className="lookup-help">新しい利用者はPINで保護されます。旧アカウントはログイン後の設定画面からPINを追加できます。</small>}
+        {mode === "name" && <small className="lookup-help">PIN入力はありません。候補の名前と進み具合を確認して選んでください。</small>}
       </section>
     </div>
   );

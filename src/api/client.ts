@@ -14,15 +14,14 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   return data;
 }
 
-export async function createPlayer(nickname: string, pin: string): Promise<{ keyId: string }> {
-  return apiRequest("/api/users", { method: "POST", body: JSON.stringify({ nickname: nickname.trim(), pin }) });
+export async function createPlayer(nickname: string): Promise<{ keyId: string }> {
+  return apiRequest("/api/users", { method: "POST", body: JSON.stringify({ nickname: nickname.trim() }) });
 }
 
 export interface PlayerLookupMatch {
   accountRef: string;
   keySuffix: string;
   nickname: string;
-  hasPin: boolean;
   completedPhrases: number;
   completedMissions: number;
 }
@@ -31,8 +30,8 @@ export async function searchPlayersByName(nickname: string): Promise<{ matches: 
   return apiRequest("/api/users/search", { method: "POST", body: JSON.stringify({ nickname: nickname.trim() }) });
 }
 
-export async function loginPlayer(accountRef: string, pin?: string): Promise<{ keyId: string; legacy: boolean }> {
-  return apiRequest("/api/users/login", { method: "POST", body: JSON.stringify({ accountRef, pin }) });
+export async function loginPlayer(accountRef: string): Promise<{ keyId: string }> {
+  return apiRequest("/api/users/login", { method: "POST", body: JSON.stringify({ accountRef }) });
 }
 
 export async function fetchSession(keyId: string): Promise<PlayerSession> {
@@ -49,19 +48,13 @@ export async function putPreferences(input: {
   return apiRequest("/api/preferences", { method: "PUT", body: JSON.stringify(input) });
 }
 
-export async function putPin(keyId: string, pin: string): Promise<{ saved: boolean }> {
-  return apiRequest("/api/users/pin", { method: "PUT", body: JSON.stringify({ keyId, pin }) });
-}
-
 export async function uploadCharacter(input: {
   keyId: string;
-  pin: string;
   displayName: string;
   file: File;
 }): Promise<{ saved: boolean }> {
   const form = new FormData();
   form.set("keyId", input.keyId);
-  form.set("pin", input.pin);
   form.set("displayName", input.displayName.trim());
   form.set("file", input.file, input.file.name);
   const response = await fetch("/api/characters", { method: "POST", body: form });
@@ -70,8 +63,8 @@ export async function uploadCharacter(input: {
   return { saved: Boolean(data.saved) };
 }
 
-export async function deleteCharacter(keyId: string, pin: string): Promise<{ deleted: boolean }> {
-  return apiRequest("/api/characters", { method: "DELETE", body: JSON.stringify({ keyId, pin }) });
+export async function deleteCharacter(keyId: string): Promise<{ deleted: boolean }> {
+  return apiRequest("/api/characters", { method: "DELETE", body: JSON.stringify({ keyId }) });
 }
 
 export interface SavePhraseInput {

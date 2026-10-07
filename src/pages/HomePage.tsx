@@ -14,8 +14,6 @@ export function HomePage() {
   const [lookupOpen, setLookupOpen] = useState(false);
   const [startingNew, setStartingNew] = useState(false);
   const [newNickname, setNewNickname] = useState("");
-  const [newPin, setNewPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -33,8 +31,6 @@ export function HomePage() {
 
   const openNewPlayer = () => {
     setNewNickname("");
-    setNewPin("");
-    setConfirmPin("");
     setStartError(null);
     setStartingNew(true);
   };
@@ -49,18 +45,10 @@ export function HomePage() {
     event.preventDefault();
     const nickname = newNickname.trim();
     if (!nickname) return;
-    if (!/^\d{4,8}$/.test(newPin)) {
-      setStartError("PINは4〜8桁の数字で入力してください");
-      return;
-    }
-    if (newPin !== confirmPin) {
-      setStartError("確認用PINが一致しません");
-      return;
-    }
     setBusy(true);
     setStartError(null);
     try {
-      await startNew(nickname, newPin);
+      await startNew(nickname);
       setStartingNew(false);
       void navigate("/play?mission=m001");
     } catch (caught) {
@@ -134,17 +122,13 @@ export function HomePage() {
         <div className="modal-backdrop premium-modal-backdrop" role="presentation" onMouseDown={() => !busy && setStartingNew(false)}>
           <section className="modal-card new-player-card premium-modal-card" role="dialog" aria-modal="true" aria-labelledby="new-player-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" type="button" onClick={() => setStartingNew(false)} disabled={busy} aria-label="閉じる">×</button>
-            <p className="eyebrow">NEW COMMANDER</p><h2 id="new-player-title">新しい拠点を始める</h2><p>利用者名とPINを決めます。次回から名前とPINで安全に続きを開けます。</p>
+            <p className="eyebrow">NEW COMMANDER</p><h2 id="new-player-title">新しい拠点を始める</h2><p>利用者名を決めるだけです。次回から名前で続きを開けます。</p>
             <form onSubmit={(event) => void handleStart(event)}>
               <label htmlFor="new-player-name">利用者名</label>
               <input autoFocus className="player-name-input" id="new-player-name" value={newNickname} maxLength={24} onChange={(event) => setNewNickname(event.target.value)} placeholder="例：ゆうき" autoComplete="off" />
-              <label htmlFor="new-player-pin">PIN <small>4〜8桁の数字</small></label>
-              <input id="new-player-pin" type="password" inputMode="numeric" autoComplete="new-password" value={newPin} onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="例：6412" />
-              <label htmlFor="new-player-pin-confirm">PINをもう一度</label>
-              <input id="new-player-pin-confirm" type="password" inputMode="numeric" autoComplete="new-password" value={confirmPin} onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="確認用PIN" />
-              <small className="pin-help">KEY IDはPINを忘れたときの復旧用です。設定画面で確認できます。</small>
+              <small className="pin-help">同じ名前の人がいる場合は、進み具合を見て自分のデータを選べます。KEY IDは予備として設定画面で確認できます。</small>
               {startError && <p className="form-error" role="alert">{startError}</p>}
-              <button className="button primary" type="submit" disabled={busy || !newNickname.trim() || !/^\d{4,8}$/.test(newPin) || newPin !== confirmPin}>{busy ? "拠点作成中…" : "この内容で開始 →"}</button>
+              <button className="button primary" type="submit" disabled={busy || !newNickname.trim()}>{busy ? "拠点作成中…" : "この内容で開始 →"}</button>
             </form>
           </section>
         </div>

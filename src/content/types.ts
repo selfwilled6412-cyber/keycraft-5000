@@ -101,7 +101,6 @@ export interface PlayerCharacter {
 
 export interface PlayerSession {
   keyId: string;
-  hasPin: boolean;
   preferences: PlayerPreferences;
   progress: PhraseProgress[];
   completedMissionIds: string[];

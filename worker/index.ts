@@ -1,16 +1,12 @@
 import { PHRASES_PER_MISSION, TOTAL_MISSIONS, TOTAL_PHRASES } from "../src/content/limits";
 
 const KEY_ID_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
-const PIN_PATTERN = /^\d{4,8}$/;
 const MISSION_ID_PATTERN = /^m(\d{3})$/;
 const PHRASE_ID_PATTERN = /^p(\d{3})-(\d{2})$/;
 const KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DELIVERABLE_EVENT_PATTERN = /^[a-z0-9:_-]{1,96}$/i;
 const MAX_DELIVERABLE_BYTES = 8 * 1024 * 1024;
 const MAX_CHARACTER_BYTES = 5 * 1024 * 1024;
-const PIN_HASH_ITERATIONS = 100_000;
-const PIN_MAX_FAILURES = 5;
-const PIN_LOCK_MINUTES = 15;
 const ALLOWED_GENRES = new Set([
   "食べ物", "動物", "ゲーム", "スポーツ", "音楽", "旅行", "乗り物", "科学", "宇宙", "パソコン", "自然", "ものづくり",
 ]);
@@ -49,25 +45,14 @@ interface UserRow {
   key_id: string;
   nickname: string | null;
   created_at: string;
-  pin_hash: string | null;
 }
 
 interface PlayerSearchRow {
   key_id: string;
   account_ref: string | null;
   nickname: string;
-  pin_hash: string | null;
   completed_phrases: number;
   completed_missions: number;
-}
-
-interface LoginRow {
-  key_id: string;
-  pin_salt: string | null;
-  pin_hash: string | null;
-  pin_iterations: number | null;
-  pin_failed_attempts: number;
-  pin_locked_until: string | null;
 }
 
 interface PreferenceRow {
@@ -183,55 +168,10 @@ interface CharacterRow {
   updated_at: string;
 }
 
-function parsePin(value: unknown): string {
-  const pin = typeof value === "string" ? value.trim() : "";
-  if (!PIN_PATTERN.test(pin)) throw new HttpError(400, "PINは4〜8桁の数字で入力してください");
-  return pin;
-}
-
 function parseAccountRef(value: unknown): string {
   const accountRef = typeof value === "string" ? value.trim() : "";
   if (!/^[a-f0-9-]{36}$/i.test(accountRef)) throw new HttpError(400, "利用者候補が不正です");
   return accountRef;
-}
-
-function bytesToHex(bytes: Uint8Array<ArrayBuffer>): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function hexToBytes(value: string): Uint8Array<ArrayBuffer> {
-  if (!/^[a-f0-9]+$/i.test(value) || value.length % 2 !== 0) return new Uint8Array(new ArrayBuffer(0));
-  const bytes = new Uint8Array(new ArrayBuffer(value.length / 2));
-  for (let index = 0; index < bytes.length; index += 1) bytes[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16);
-  return bytes;
-}
-
-function secureSalt(): string {
-  const bytes = new Uint8Array(new ArrayBuffer(16));
-  crypto.getRandomValues(bytes);
-  return bytesToHex(bytes);
-}
-
-async function hashPin(pin: string, salt: string, iterations: number): Promise<ArrayBuffer> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({
-    name: "PBKDF2",
-    hash: "SHA-256",
-    salt: hexToBytes(salt),
-    iterations,
-  }, key, 256);
-  return bits;
-}
-
-async function verifyPin(pin: string, row: LoginRow): Promise<boolean> {
-  if (!row.pin_salt || !row.pin_hash || !row.pin_iterations) return false;
-  const provided = await hashPin(pin, row.pin_salt, row.pin_iterations);
-  const expected = hexToBytes(row.pin_hash).buffer;
-  const subtle = crypto.subtle;
-  if (!("timingSafeEqual" in subtle) || typeof subtle.timingSafeEqual !== "function") {
-    throw new Error("timingSafeEqual is unavailable");
-  }
-  return subtle.timingSafeEqual(provided, expected);
 }
 
 function validateContentIds(phraseId: unknown, missionId: unknown): { phraseId: string; missionId: string } {
@@ -257,17 +197,14 @@ async function createUser(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const nickname = parseNickname(body.nickname);
-  const pin = parsePin(body.pin);
-  const salt = secureSalt();
-  const pinHash = bytesToHex(new Uint8Array(await hashPin(pin, salt, PIN_HASH_ITERATIONS)));
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const keyId = secureKeyId();
     const accountRef = crypto.randomUUID();
     const results = await env.DB.batch([
       env.DB.prepare(`
-        INSERT OR IGNORE INTO users (key_id, nickname, account_ref, pin_salt, pin_hash, pin_iterations)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(keyId, nickname, accountRef, salt, pinHash, PIN_HASH_ITERATIONS),
+        INSERT OR IGNORE INTO users (key_id, nickname, account_ref)
+        VALUES (?, ?, ?)
+      `).bind(keyId, nickname, accountRef),
       env.DB.prepare("INSERT OR IGNORE INTO preferences (key_id) VALUES (?)").bind(keyId),
     ]);
     if ((results[0]?.meta.changes ?? 0) > 0) {
@@ -286,7 +223,6 @@ async function searchUsers(request: Request, env: AppEnv): Promise<Response> {
       u.key_id,
       u.account_ref,
       u.nickname,
-      u.pin_hash,
       (SELECT COUNT(*) FROM progress p WHERE p.key_id = u.key_id) AS completed_phrases,
       (SELECT COUNT(*) FROM mission_completions m WHERE m.key_id = u.key_id) AS completed_missions
     FROM users u
@@ -308,7 +244,6 @@ async function searchUsers(request: Request, env: AppEnv): Promise<Response> {
       accountRef,
       keySuffix: row.key_id.slice(-2),
       nickname: row.nickname,
-      hasPin: Boolean(row.pin_hash),
       completedPhrases: Number(row.completed_phrases) || 0,
       completedMissions: Number(row.completed_missions) || 0,
     });
@@ -316,87 +251,18 @@ async function searchUsers(request: Request, env: AppEnv): Promise<Response> {
   return json({ matches });
 }
 
-async function requireVerifiedPin(env: AppEnv, keyId: string, rawPin: unknown): Promise<void> {
-  const row = await env.DB.prepare(`
-    SELECT key_id, pin_salt, pin_hash, pin_iterations, pin_failed_attempts, pin_locked_until
-    FROM users WHERE key_id = ?
-  `).bind(keyId).first<LoginRow>();
-  if (!row) throw new HttpError(404, "KEY IDが見つかりません");
-  if (!row.pin_hash) throw new HttpError(409, "先にアカウントPINを設定してください");
-
-  const now = Date.now();
-  const lockedUntil = row.pin_locked_until ? Date.parse(`${row.pin_locked_until.replace(" ", "T")}Z`) : Number.NaN;
-  if (Number.isFinite(lockedUntil) && lockedUntil > now) {
-    throw new HttpError(429, "PIN入力が一時停止中です。15分後にもう一度お試しください");
-  }
-  const attemptsBefore = Number.isFinite(lockedUntil) && lockedUntil <= now ? 0 : Number(row.pin_failed_attempts) || 0;
-  const pin = parsePin(rawPin);
-  if (!await verifyPin(pin, row)) {
-    const attempts = attemptsBefore + 1;
-    const lockUntil = attempts >= PIN_MAX_FAILURES
-      ? new Date(now + PIN_LOCK_MINUTES * 60_000).toISOString().replace("T", " ").slice(0, 19)
-      : null;
-    await env.DB.prepare("UPDATE users SET pin_failed_attempts = ?, pin_locked_until = ? WHERE key_id = ?")
-      .bind(attempts, lockUntil, keyId)
-      .run();
-    if (lockUntil) throw new HttpError(429, "PINを5回間違えたため、15分間入力を停止しました");
-    throw new HttpError(401, `PINが違います。あと${PIN_MAX_FAILURES - attempts}回入力できます`);
-  }
-  await env.DB.prepare("UPDATE users SET pin_failed_attempts = 0, pin_locked_until = NULL WHERE key_id = ?")
-    .bind(keyId)
-    .run();
-}
-
 async function loginUser(request: Request, env: AppEnv): Promise<Response> {
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const accountRef = parseAccountRef(body.accountRef);
-  const row = await env.DB.prepare(`
-    SELECT key_id, pin_salt, pin_hash, pin_iterations, pin_failed_attempts, pin_locked_until
-    FROM users WHERE account_ref = ?
-  `).bind(accountRef).first<LoginRow>();
+  const row = await env.DB.prepare("SELECT key_id FROM users WHERE account_ref = ?")
+    .bind(accountRef)
+    .first<{ key_id: string }>();
   if (!row) throw new HttpError(404, "利用者が見つかりません");
-  if (!row.pin_hash) return json({ keyId: row.key_id, legacy: true });
-
-  const now = Date.now();
-  const lockedUntil = row.pin_locked_until ? Date.parse(`${row.pin_locked_until.replace(" ", "T")}Z`) : Number.NaN;
-  if (Number.isFinite(lockedUntil) && lockedUntil > now) {
-    throw new HttpError(429, "PIN入力が一時停止中です。15分後にもう一度お試しください");
-  }
-  const attemptsBefore = Number.isFinite(lockedUntil) && lockedUntil <= now ? 0 : Number(row.pin_failed_attempts) || 0;
-  const pin = parsePin(body.pin);
-  if (!await verifyPin(pin, row)) {
-    const attempts = attemptsBefore + 1;
-    const lockUntil = attempts >= PIN_MAX_FAILURES
-      ? new Date(now + PIN_LOCK_MINUTES * 60_000).toISOString().replace("T", " ").slice(0, 19)
-      : null;
-    await env.DB.prepare("UPDATE users SET pin_failed_attempts = ?, pin_locked_until = ? WHERE key_id = ?")
-      .bind(attempts, lockUntil, row.key_id)
-      .run();
-    if (lockUntil) throw new HttpError(429, "PINを5回間違えたため、15分間入力を停止しました");
-    throw new HttpError(401, `PINが違います。あと${PIN_MAX_FAILURES - attempts}回入力できます`);
-  }
-
-  await env.DB.prepare("UPDATE users SET pin_failed_attempts = 0, pin_locked_until = NULL, last_seen_at = CURRENT_TIMESTAMP WHERE key_id = ?")
+  await env.DB.prepare("UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE key_id = ?")
     .bind(row.key_id)
     .run();
-  return json({ keyId: row.key_id, legacy: false });
-}
-
-async function updatePin(request: Request, env: AppEnv): Promise<Response> {
-  const body = await readJsonBody(request);
-  if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
-  const keyId = parseKeyId(body.keyId);
-  const pin = parsePin(body.pin);
-  await requireUser(env, keyId);
-  const salt = secureSalt();
-  const pinHash = bytesToHex(new Uint8Array(await hashPin(pin, salt, PIN_HASH_ITERATIONS)));
-  await env.DB.prepare(`
-    UPDATE users
-    SET pin_salt = ?, pin_hash = ?, pin_iterations = ?, pin_failed_attempts = 0, pin_locked_until = NULL
-    WHERE key_id = ?
-  `).bind(salt, pinHash, PIN_HASH_ITERATIONS, keyId).run();
-  return json({ saved: true });
+  return json({ keyId: row.key_id });
 }
 
 async function getSession(request: Request, env: AppEnv): Promise<Response> {
@@ -404,7 +270,7 @@ async function getSession(request: Request, env: AppEnv): Promise<Response> {
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const keyId = parseKeyId(body.keyId);
   const [userResult, preferenceResult, progressResult, missionResult, characterResult] = await env.DB.batch([
-    env.DB.prepare("SELECT key_id, nickname, created_at, pin_hash FROM users WHERE key_id = ?").bind(keyId),
+    env.DB.prepare("SELECT key_id, nickname, created_at FROM users WHERE key_id = ?").bind(keyId),
     env.DB.prepare("SELECT assist_mode, genres_json, character_motion_enabled FROM preferences WHERE key_id = ?").bind(keyId),
     env.DB.prepare("SELECT phrase_id, mission_id, accuracy, keystrokes, miss_keys_json, completed_at FROM progress WHERE key_id = ? ORDER BY completed_at").bind(keyId),
     env.DB.prepare("SELECT mission_id FROM mission_completions WHERE key_id = ? ORDER BY completed_at").bind(keyId),
@@ -421,7 +287,6 @@ async function getSession(request: Request, env: AppEnv): Promise<Response> {
   return json({
     keyId,
     createdAt: user.created_at,
-    hasPin: Boolean(user.pin_hash),
     preferences: {
       assistMode: preferences?.assist_mode ?? "beginner",
       genres: safelyParseGenres(preferences?.genres_json),
@@ -573,7 +438,7 @@ async function saveCharacter(request: Request, env: AppEnv): Promise<Response> {
   const form = await request.formData();
   const keyId = parseKeyId(form.get("keyId"));
   const displayName = parseCharacterName(form.get("displayName"));
-  await requireVerifiedPin(env, keyId, form.get("pin"));
+  await requireUser(env, keyId);
   const file = form.get("file");
   if (!(file instanceof File)) throw new HttpError(400, "キャラクター画像がありません");
   if (file.type !== "image/png" && file.type !== "image/webp") {
@@ -627,7 +492,7 @@ async function deleteCharacter(request: Request, env: AppEnv): Promise<Response>
   const body = await readJsonBody(request);
   if (!isRecord(body)) throw new HttpError(400, "入力内容が不正です");
   const keyId = parseKeyId(body.keyId);
-  await requireVerifiedPin(env, keyId, body.pin);
+  await requireUser(env, keyId);
   const row = await env.DB.prepare("SELECT object_key FROM player_characters WHERE key_id = ?")
     .bind(keyId)
     .first<{ object_key: string }>();
@@ -800,12 +665,11 @@ async function getDeliverableFile(request: Request, env: AppEnv, id: string): Pr
 async function handleApi(request: Request, env: AppEnv): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === "/api/health" && request.method === "GET") {
-    return json({ ok: true, service: "keycraft-5000", contentVersion: 4, totalMissions: TOTAL_MISSIONS, totalPhrases: TOTAL_PHRASES, deliverables: true, accountPin: true, playerCharacters: true });
+    return json({ ok: true, service: "keycraft-5000", contentVersion: 4, totalMissions: TOTAL_MISSIONS, totalPhrases: TOTAL_PHRASES, deliverables: true, accountPin: false, playerCharacters: true });
   }
   if (pathname === "/api/users" && request.method === "POST") return createUser(request, env);
   if (pathname === "/api/users/search" && request.method === "POST") return searchUsers(request, env);
   if (pathname === "/api/users/login" && request.method === "POST") return loginUser(request, env);
-  if (pathname === "/api/users/pin" && request.method === "PUT") return updatePin(request, env);
   if (pathname === "/api/session" && request.method === "POST") return getSession(request, env);
   if (pathname === "/api/preferences" && request.method === "PUT") return updatePreferences(request, env);
   if (pathname === "/api/progress/phrase" && request.method === "POST") return savePhrase(request, env);

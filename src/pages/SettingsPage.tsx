@@ -12,17 +12,13 @@ const modes: Array<{ id: AssistMode; title: string; description: string; feature
 ];
 
 export function SettingsPage() {
-  const { session, refreshSession, savePreferences, savePin, signOut } = usePlayer();
+  const { session, refreshSession, savePreferences, signOut } = usePlayer();
   const [mode, setMode] = useState<AssistMode>(session?.preferences.assistMode ?? "beginner");
   const [genres, setGenres] = useState<string[]>(session?.preferences.genres ?? []);
   const [nickname, setNickname] = useState(session?.preferences.nickname ?? "");
   const [characterMotionEnabled, setCharacterMotionEnabled] = useState(session?.preferences.characterMotionEnabled ?? true);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [pin, setPinValue] = useState("");
-  const [pinConfirm, setPinConfirm] = useState("");
-  const [pinStatus, setPinStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [characterName, setCharacterName] = useState(session?.character?.displayName ?? session?.preferences.nickname ?? "");
-  const [characterPin, setCharacterPin] = useState("");
   const [characterFile, setCharacterFile] = useState<File | null>(null);
   const [characterPreview, setCharacterPreview] = useState<string | null>(null);
   const [characterStatus, setCharacterStatus] = useState<"idle" | "saving" | "saved" | "deleting" | "error">("idle");
@@ -35,7 +31,6 @@ export function SettingsPage() {
     setNickname(session.preferences.nickname ?? "");
     setCharacterMotionEnabled(session.preferences.characterMotionEnabled);
     setCharacterName(session.character?.displayName ?? session.preferences.nickname ?? "");
-    setCharacterPin("");
     setCharacterFile(null);
     setCharacterPreview(null);
     setCharacterStatus("idle");
@@ -64,22 +59,6 @@ export function SettingsPage() {
     }
   };
 
-  const handlePinSave = async () => {
-    if (!/^\d{4,8}$/.test(pin) || pin !== pinConfirm) {
-      setPinStatus("error");
-      return;
-    }
-    setPinStatus("saving");
-    try {
-      await savePin(pin);
-      setPinValue("");
-      setPinConfirm("");
-      setPinStatus("saved");
-    } catch {
-      setPinStatus("error");
-    }
-  };
-
   const handleCharacterFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setCharacterStatus("idle");
@@ -104,13 +83,12 @@ export function SettingsPage() {
   };
 
   const handleCharacterSave = async () => {
-    if (!characterFile || !characterName.trim() || !/^\d{4,8}$/.test(characterPin)) return;
+    if (!characterFile || !characterName.trim()) return;
     setCharacterStatus("saving");
     setCharacterMessage("");
     try {
-      await uploadCharacter({ keyId: session.keyId, pin: characterPin, displayName: characterName, file: characterFile });
+      await uploadCharacter({ keyId: session.keyId, displayName: characterName, file: characterFile });
       await refreshSession();
-      setCharacterPin("");
       setCharacterFile(null);
       setCharacterPreview(null);
       setCharacterStatus("saved");
@@ -122,14 +100,13 @@ export function SettingsPage() {
   };
 
   const handleCharacterDelete = async () => {
-    if (!session.character || !/^\d{4,8}$/.test(characterPin)) return;
+    if (!session.character) return;
     if (!window.confirm("登録中のキャラクター画像を削除しますか？進捗と過去の成果物は消えません。")) return;
     setCharacterStatus("deleting");
     setCharacterMessage("");
     try {
-      await deleteCharacter(session.keyId, characterPin);
+      await deleteCharacter(session.keyId);
       await refreshSession();
-      setCharacterPin("");
       setCharacterFile(null);
       setCharacterPreview(null);
       setCharacterStatus("saved");
@@ -160,24 +137,8 @@ export function SettingsPage() {
           <div className="key-id-setting"><span>KEY ID</span><strong>{session.keyId}</strong><small>名前で見つからない場合の予備IDです。公開場所への投稿は避けてください。</small></div>
         </section>
 
-        <section className="settings-section panel pin-settings">
-          <header><span>04</span><div><h2>アカウントPIN</h2><p>名前で利用者を切り替えるとき、ほかの人に進み具合を開かれないよう保護します。</p></div><b>{session.hasPin ? "設定済み" : "未設定"}</b></header>
-          {session.hasPin ? (
-            <div className="pin-ready"><strong>PINで保護されています ✓</strong><p>PINを忘れた場合は、上のKEY IDを使ってログインできます。KEY IDは復旧用として安全な場所に保管してください。</p></div>
-          ) : (
-            <div className="pin-setup-fields">
-              <label htmlFor="settings-pin">新しいPIN <small>4〜8桁の数字</small></label>
-              <input id="settings-pin" type="password" inputMode="numeric" autoComplete="new-password" value={pin} onChange={(event) => { setPinValue(event.target.value.replace(/\D/g, "").slice(0, 8)); setPinStatus("idle"); }} placeholder="例：6412" />
-              <label htmlFor="settings-pin-confirm">PINをもう一度</label>
-              <input id="settings-pin-confirm" type="password" inputMode="numeric" autoComplete="new-password" value={pinConfirm} onChange={(event) => { setPinConfirm(event.target.value.replace(/\D/g, "").slice(0, 8)); setPinStatus("idle"); }} placeholder="確認用PIN" />
-              <button className="button secondary" type="button" onClick={() => void handlePinSave()} disabled={pinStatus === "saving" || !/^\d{4,8}$/.test(pin) || pin !== pinConfirm}>{pinStatus === "saving" ? "PINを保存中…" : pinStatus === "saved" ? "PINを設定しました ✓" : "PINを設定する"}</button>
-              {pinStatus === "error" && <span className="form-error" role="alert">PINを確認して、もう一度お試しください。</span>}
-            </div>
-          )}
-        </section>
-
         <section className="settings-section panel character-settings">
-          <header><span>05</span><div><h2>マイキャラクター</h2><p>背景透過PNGまたはWebPを登録すると、利用者ごとにタイピング画面・拠点・自動PNG成果物へ登場します。</p></div><b>{session.character ? "登録済み" : "未登録"}</b></header>
+          <header><span>04</span><div><h2>マイキャラクター</h2><p>背景透過PNGまたはWebPを登録すると、利用者ごとにタイピング画面・拠点・自動PNG成果物へ登場します。</p></div><b>{session.character ? "登録済み" : "未登録"}</b></header>
           <div className="character-settings-grid">
             <div className={`character-preview ${characterPreview || session.character ? "has-image" : ""} ${characterMotionEnabled ? "character-motion-enabled" : ""}`}>
               {characterPreview || session.character ? <img src={characterPreview ?? session.character?.imageUrl} alt={characterName || "マイキャラクター"} /> : <div><span>＋</span><b>CHARACTER</b><small>透過画像がおすすめ</small></div>}
@@ -191,12 +152,10 @@ export function SettingsPage() {
                 <input id="character-motion-enabled" className="character-motion-checkbox" type="checkbox" checked={characterMotionEnabled} onChange={(event) => setCharacterMotionEnabled(event.target.checked)} />
                 <span><strong>キャラクターを動かす</strong><small>待機・入力・ミス・MISSION CLEARで反応します。変更後は下の「設定を保存する」で確定します。</small></span>
               </label>
-              <label htmlFor="character-pin">確認用PIN</label>
-              <input id="character-pin" type="password" inputMode="numeric" autoComplete="current-password" value={characterPin} onChange={(event) => { setCharacterPin(event.target.value.replace(/\D/g, "").slice(0, 8)); setCharacterStatus("idle"); }} placeholder="アカウントPIN" />
-              {!session.hasPin && <p className="character-help">先に「04 アカウントPIN」を設定してください。</p>}
+              <p className="character-help">PIN入力は不要です。画像を選ぶとすぐ登録できます。</p>
               <div className="character-buttons">
-                <button className="button secondary" type="button" onClick={() => void handleCharacterSave()} disabled={!session.hasPin || !characterFile || !characterName.trim() || !/^\d{4,8}$/.test(characterPin) || characterStatus === "saving" || characterStatus === "deleting"}>{characterStatus === "saving" ? "登録中…" : session.character ? "画像を差し替える" : "キャラクターを登録"}</button>
-                {session.character && <button className="button danger" type="button" onClick={() => void handleCharacterDelete()} disabled={!/^\d{4,8}$/.test(characterPin) || characterStatus === "saving" || characterStatus === "deleting"}>{characterStatus === "deleting" ? "解除中…" : "登録を解除"}</button>}
+                <button className="button secondary" type="button" onClick={() => void handleCharacterSave()} disabled={!characterFile || !characterName.trim() || characterStatus === "saving" || characterStatus === "deleting"}>{characterStatus === "saving" ? "登録中…" : session.character ? "画像を差し替える" : "キャラクターを登録"}</button>
+                {session.character && <button className="button danger" type="button" onClick={() => void handleCharacterDelete()} disabled={characterStatus === "saving" || characterStatus === "deleting"}>{characterStatus === "deleting" ? "解除中…" : "登録を解除"}</button>}
               </div>
               {characterMessage && <p className={characterStatus === "error" ? "form-error" : "character-success"} role={characterStatus === "error" ? "alert" : "status"}>{characterMessage}</p>}
             </div>

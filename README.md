@@ -2,7 +2,7 @@
 
 **打つほど、世界ができていく。**
 
-KEY CRAFT 10000 は、一般ユーザー向けの無料タイピングゲームです。10のゾーンを巡り、500のMISSIONと10,000の日本語フレーズを打って、二つの世界を完成させます。メールアドレスは不要で、利用者名・PINまたは6文字のKEY IDで続きを遊べます。
+KEY CRAFT 10000 は、一般ユーザー向けの無料タイピングゲームです。10のゾーンを巡り、500のMISSIONと10,000の日本語フレーズを打って、二つの世界を完成させます。メールアドレスやPINは不要で、利用者名または6文字のKEY IDで続きを遊べます。
 
 ## 収録内容
 
@@ -24,7 +24,7 @@ KEY CRAFT 10000 は、一般ユーザー向けの無料タイピングゲーム�
 - API: Cloudflare Workers
 - データベース: Cloudflare D1
 - PNG成果物: private Cloudflare Workers KV + D1台帳
-- マイキャラクター: 専用Workers KV + D1台帳（登録・差し替え・解除はPIN確認）
+- マイキャラクター: 専用Workers KV + D1台帳（PINなしで登録・差し替え・解除）
 - 配信: Workers Static Assets（`/api/*` のみWorkerを先に実行）
 - テスト: Vitest / Cloudflare Workers test pool
 - CI: GitHub Actions
@@ -90,8 +90,8 @@ npm run deploy:dry
 - `POST /api/session` — KEY IDから設定・進捗を復元
 - `PUT /api/preferences` — ニックネーム、アシスト、好みジャンルを保存
 - `POST /api/progress/phrase` — 1問の完了を冪等保存
-- `POST /api/characters` — PIN確認後にマイキャラクターを登録・差し替え
-- `DELETE /api/characters` — PIN確認後にマイキャラクター登録だけを解除
+- `POST /api/characters` — マイキャラクターを登録・差し替え
+- `DELETE /api/characters` — マイキャラクター登録だけを解除
 - `GET /api/characters/image/:keyId` — 登録済みキャラクター画像を配信
 
 進捗の主キーは `(key_id, phrase_id)` です。同じ完了通知が再送されても二重計上されません。入力JSONにはサイズ上限を設け、全SQLはD1のバインド変数を使用します。
