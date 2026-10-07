@@ -79,6 +79,7 @@ export interface PlayerPreferences {
   assistMode: AssistMode;
   genres: string[];
   nickname: string | null;
+  characterMotionEnabled: boolean;
 }
 
 export interface PhraseProgress {

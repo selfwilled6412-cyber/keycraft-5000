@@ -44,6 +44,7 @@ export async function putPreferences(input: {
   assistMode: AssistMode;
   genres: string[];
   nickname: string | null;
+  characterMotionEnabled: boolean;
 }): Promise<{ saved: boolean }> {
   return apiRequest("/api/preferences", { method: "PUT", body: JSON.stringify(input) });
 }

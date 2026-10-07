@@ -56,7 +56,7 @@ describe("Worker API + D1", () => {
     expect(keyId).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
     const response = await request("/api/session", "POST", { keyId });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ keyId, hasPin: true, progress: [], completedMissionIds: [] });
+    expect(await response.json()).toMatchObject({ keyId, hasPin: true, preferences: { characterMotionEnabled: true }, progress: [], completedMissionIds: [] });
   });
 
   it("利用者名とPINがない新規作成を拒否する", async () => {
@@ -160,10 +160,10 @@ describe("Worker API + D1", () => {
 
   it("設定をD1へ保存して復元する", async () => {
     const keyId = await createKeyId();
-    const response = await request("/api/preferences", "PUT", { keyId, assistMode: "normal", genres: ["宇宙", "科学", "パソコン"], nickname: "クラフター" });
+    const response = await request("/api/preferences", "PUT", { keyId, assistMode: "normal", genres: ["宇宙", "科学", "パソコン"], nickname: "クラフター", characterMotionEnabled: false });
     expect(response.status).toBe(200);
     const session = await (await request("/api/session", "POST", { keyId })).json<{ preferences: unknown }>();
-    expect(session.preferences).toEqual({ assistMode: "normal", genres: ["宇宙", "科学", "パソコン"], nickname: "クラフター" });
+    expect(session.preferences).toEqual({ assistMode: "normal", genres: ["宇宙", "科学", "パソコン"], nickname: "クラフター", characterMotionEnabled: false });
   });
 
   it("PIN確認後に利用者別キャラクターをKVへ保存してセッションと画像から復元する", async () => {

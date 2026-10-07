@@ -27,7 +27,7 @@ function buildVisualReviewSession(): PlayerSession {
   return {
     keyId: "V2REVIEW",
     hasPin: true,
-    preferences: { assistMode: "beginner", genres: [], nickname: "minako" },
+    preferences: { assistMode: "beginner", genres: [], nickname: "minako", characterMotionEnabled: true },
     progress: completedPhrases.map((phrase, index) => ({
       phraseId: phrase.id,
       missionId: phrase.missionId,

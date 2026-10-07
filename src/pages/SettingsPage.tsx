@@ -16,6 +16,7 @@ export function SettingsPage() {
   const [mode, setMode] = useState<AssistMode>(session?.preferences.assistMode ?? "beginner");
   const [genres, setGenres] = useState<string[]>(session?.preferences.genres ?? []);
   const [nickname, setNickname] = useState(session?.preferences.nickname ?? "");
+  const [characterMotionEnabled, setCharacterMotionEnabled] = useState(session?.preferences.characterMotionEnabled ?? true);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [pin, setPinValue] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
@@ -32,6 +33,7 @@ export function SettingsPage() {
     setMode(session.preferences.assistMode);
     setGenres(session.preferences.genres);
     setNickname(session.preferences.nickname ?? "");
+    setCharacterMotionEnabled(session.preferences.characterMotionEnabled);
     setCharacterName(session.character?.displayName ?? session.preferences.nickname ?? "");
     setCharacterPin("");
     setCharacterFile(null);
@@ -54,7 +56,7 @@ export function SettingsPage() {
     event.preventDefault();
     setStatus("saving");
     try {
-      await savePreferences({ assistMode: mode, genres, nickname: nickname.trim() || null });
+      await savePreferences({ assistMode: mode, genres, nickname: nickname.trim() || null, characterMotionEnabled });
       setStatus("saved");
       window.setTimeout(() => setStatus("idle"), 1800);
     } catch {
@@ -177,7 +179,7 @@ export function SettingsPage() {
         <section className="settings-section panel character-settings">
           <header><span>05</span><div><h2>マイキャラクター</h2><p>背景透過PNGまたはWebPを登録すると、利用者ごとにタイピング画面・拠点・自動PNG成果物へ登場します。</p></div><b>{session.character ? "登録済み" : "未登録"}</b></header>
           <div className="character-settings-grid">
-            <div className={`character-preview ${characterPreview || session.character ? "has-image" : ""}`}>
+            <div className={`character-preview ${characterPreview || session.character ? "has-image" : ""} ${characterMotionEnabled ? "character-motion-enabled" : ""}`}>
               {characterPreview || session.character ? <img src={characterPreview ?? session.character?.imageUrl} alt={characterName || "マイキャラクター"} /> : <div><span>＋</span><b>CHARACTER</b><small>透過画像がおすすめ</small></div>}
             </div>
             <div className="character-fields">
@@ -185,6 +187,10 @@ export function SettingsPage() {
               <input id="character-name" value={characterName} maxLength={40} onChange={(event) => { setCharacterName(event.target.value); setCharacterStatus("idle"); }} placeholder="例：コハク" />
               <label className="character-file-button" htmlFor="character-file">画像を選ぶ <small>PNG / WebP・5MB以内</small></label>
               <input id="character-file" className="character-file-input" type="file" accept="image/png,image/webp,.png,.webp" onChange={handleCharacterFile} />
+              <label className="character-motion-toggle" htmlFor="character-motion-enabled">
+                <input id="character-motion-enabled" className="character-motion-checkbox" type="checkbox" checked={characterMotionEnabled} onChange={(event) => setCharacterMotionEnabled(event.target.checked)} />
+                <span><strong>キャラクターを動かす</strong><small>待機・入力・ミス・MISSION CLEARで反応します。変更後は下の「設定を保存する」で確定します。</small></span>
+              </label>
               <label htmlFor="character-pin">確認用PIN</label>
               <input id="character-pin" type="password" inputMode="numeric" autoComplete="current-password" value={characterPin} onChange={(event) => { setCharacterPin(event.target.value.replace(/\D/g, "").slice(0, 8)); setCharacterStatus("idle"); }} placeholder="アカウントPIN" />
               {!session.hasPin && <p className="character-help">先に「04 アカウントPIN」を設定してください。</p>}

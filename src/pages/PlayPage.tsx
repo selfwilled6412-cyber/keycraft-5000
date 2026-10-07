@@ -38,6 +38,8 @@ export function PlayPage() {
   const phrase = phrases[phraseIndex] ?? phrases[0];
   const matcherRef = useRef<RomanizationMatcher | null>(null);
   const recorderRef = useRef<TypingVideoRecorder | null>(null);
+  const characterImageRef = useRef<HTMLImageElement | null>(null);
+  const characterReactionRef = useRef<Animation | null>(null);
   const recordedMissionRef = useRef<string | null>(null);
   const artifactMissionRef = useRef<string | null>(null);
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(initialSnapshot);
@@ -114,6 +116,45 @@ export function PlayPage() {
   const completedBefore = session?.progress.filter((item) => item.missionId === mission.id).length ?? 0;
   const missionProgress = isPractice ? (missionComplete ? 20 : phraseIndex) : Math.min(20, Math.max(completedBefore, phraseIndex));
   const accuracy = calculateAccuracy(snapshot.keystrokes, snapshot.misses);
+
+  const animateCharacter = useCallback((reaction: "type" | "miss" | "clear") => {
+    if (!session?.character || !session.preferences.characterMotionEnabled || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const image = characterImageRef.current;
+    if (!image) return;
+    const frames: Record<typeof reaction, Keyframe[]> = {
+      type: [
+        { transform: "translateY(0) scale(1)" },
+        { transform: "translateY(-8px) scale(1.055)" },
+        { transform: "translateY(0) scale(1)" },
+      ],
+      miss: [
+        { transform: "translateX(0) rotate(0deg)" },
+        { transform: "translateX(-7px) rotate(-4deg)" },
+        { transform: "translateX(7px) rotate(4deg)" },
+        { transform: "translateX(-4px) rotate(-2deg)" },
+        { transform: "translateX(0) rotate(0deg)" },
+      ],
+      clear: [
+        { transform: "translateY(0) scale(1) rotate(0deg)" },
+        { transform: "translateY(-20px) scale(1.12) rotate(-5deg)" },
+        { transform: "translateY(0) scale(1.04) rotate(5deg)" },
+        { transform: "translateY(-8px) scale(1.08) rotate(-2deg)" },
+        { transform: "translateY(0) scale(1) rotate(0deg)" },
+      ],
+    };
+    characterReactionRef.current?.cancel();
+    characterReactionRef.current = image.animate(frames[reaction], {
+      duration: reaction === "type" ? 180 : reaction === "miss" ? 360 : 760,
+      easing: reaction === "miss" ? "ease-in-out" : "cubic-bezier(.2,.8,.2,1)",
+      iterations: reaction === "clear" ? 2 : 1,
+    });
+  }, [session?.character, session?.preferences.characterMotionEnabled]);
+
+  useEffect(() => {
+    if (missionComplete) animateCharacter("clear");
+  }, [animateCharacter, missionComplete]);
+
+  useEffect(() => () => characterReactionRef.current?.cancel(), []);
 
   useEffect(() => {
     if (!session || !phrase || isPractice) return;
@@ -258,6 +299,7 @@ export function PlayPage() {
       const result = matcherRef.current?.press(key);
       if (!result) return;
       setSnapshot(result);
+      animateCharacter(result.accepted ? "type" : "miss");
       if (!result.accepted) {
         setFeedback("miss");
         window.setTimeout(() => setFeedback((current) => current === "miss" ? "ready" : current), 280);
@@ -269,7 +311,7 @@ export function PlayPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [completePhrase, missionComplete, saving, switchingPlayer]);
+  }, [animateCharacter, completePhrase, missionComplete, saving, switchingPlayer]);
 
   if (!session) return <GameGate title="最初のMISSIONを始めよう" />;
   if (!phrase) return <GameGate title="MISSIONデータを読み込めませんでした" />;
@@ -321,7 +363,7 @@ export function PlayPage() {
 
         <aside className="reward-preview">
           <p className="eyebrow">THIS MISSION CRAFTS</p>
-          {session.character && <div className="typing-character"><img src={session.character.imageUrl} alt={session.character.displayName} /><span><small>MY CHARACTER</small><b>{session.character.displayName}</b></span></div>}
+          {session.character && <div className={`typing-character ${session.preferences.characterMotionEnabled ? "character-motion-enabled" : ""} ${missionComplete ? "is-complete" : ""}`}><img ref={characterImageRef} src={session.character.imageUrl} alt={session.character.displayName} /><span><small>{missionComplete ? "MISSION COMPLETE!" : feedback === "miss" ? "MISS REACTION" : "TYPING WITH YOU"}</small><b>{session.character.displayName}</b></span></div>}
           <RewardIcon id={mission.reward.id} kind={mission.reward.kind} locked={!missionComplete && !missionWasAlreadyCompleted} size={126} />
           <h2>{mission.reward.name}</h2>
           <p>{mission.description}</p>

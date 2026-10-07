@@ -73,6 +73,7 @@ interface LoginRow {
 interface PreferenceRow {
   assist_mode: "beginner" | "normal" | "challenge";
   genres_json: string;
+  character_motion_enabled: number;
 }
 
 interface ProgressRow {
@@ -404,7 +405,7 @@ async function getSession(request: Request, env: AppEnv): Promise<Response> {
   const keyId = parseKeyId(body.keyId);
   const [userResult, preferenceResult, progressResult, missionResult, characterResult] = await env.DB.batch([
     env.DB.prepare("SELECT key_id, nickname, created_at, pin_hash FROM users WHERE key_id = ?").bind(keyId),
-    env.DB.prepare("SELECT assist_mode, genres_json FROM preferences WHERE key_id = ?").bind(keyId),
+    env.DB.prepare("SELECT assist_mode, genres_json, character_motion_enabled FROM preferences WHERE key_id = ?").bind(keyId),
     env.DB.prepare("SELECT phrase_id, mission_id, accuracy, keystrokes, miss_keys_json, completed_at FROM progress WHERE key_id = ? ORDER BY completed_at").bind(keyId),
     env.DB.prepare("SELECT mission_id FROM mission_completions WHERE key_id = ? ORDER BY completed_at").bind(keyId),
     env.DB.prepare("SELECT key_id, display_name, object_key, content_type, byte_size, updated_at FROM player_characters WHERE key_id = ?").bind(keyId),
@@ -425,6 +426,7 @@ async function getSession(request: Request, env: AppEnv): Promise<Response> {
       assistMode: preferences?.assist_mode ?? "beginner",
       genres: safelyParseGenres(preferences?.genres_json),
       nickname: user.nickname,
+      characterMotionEnabled: preferences ? preferences.character_motion_enabled !== 0 : true,
     },
     progress: progress.map((row) => ({
       phraseId: row.phrase_id,
@@ -497,10 +499,14 @@ async function updatePreferences(request: Request, env: AppEnv): Promise<Respons
   }
   const nickname = body.nickname === null || body.nickname === undefined ? null : String(body.nickname).trim();
   if (nickname !== null && nickname.length > 24) throw new HttpError(400, "ニックネームは24文字以内です");
+  if (body.characterMotionEnabled !== undefined && typeof body.characterMotionEnabled !== "boolean") {
+    throw new HttpError(400, "キャラクターの動き設定が不正です");
+  }
+  const characterMotionEnabled = body.characterMotionEnabled === undefined ? null : body.characterMotionEnabled ? 1 : 0;
 
   const results = await env.DB.batch([
     env.DB.prepare("UPDATE users SET nickname = ?, last_seen_at = CURRENT_TIMESTAMP WHERE key_id = ?").bind(nickname || null, keyId),
-    env.DB.prepare("UPDATE preferences SET assist_mode = ?, genres_json = ?, updated_at = CURRENT_TIMESTAMP WHERE key_id = ?").bind(assistMode, JSON.stringify(body.genres), keyId),
+    env.DB.prepare("UPDATE preferences SET assist_mode = ?, genres_json = ?, character_motion_enabled = COALESCE(?, character_motion_enabled), updated_at = CURRENT_TIMESTAMP WHERE key_id = ?").bind(assistMode, JSON.stringify(body.genres), characterMotionEnabled, keyId),
   ]);
   if ((results[0]?.meta.changes ?? 0) === 0) throw new HttpError(404, "KEY IDが見つかりません");
   return json({ saved: true });
